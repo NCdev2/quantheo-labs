@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js Diamond & Carbon Chemistry with Gemini API</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; }
+        #container { width: 100vw; height: 100vh; display: block; }
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(30, 41, 59, 0.92); /* bg-slate-800 with opacity */
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            color: white;
+            width: 360px; /* Slightly wider for Gemini features */
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        #controls::-webkit-scrollbar { width: 8px; }
+        #controls::-webkit-scrollbar-track { background: #2d3748; border-radius: 10px; }
+        #controls::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 10px; }
+        #controls::-webkit-scrollbar-thumb:hover { background: #718096; }
+
+        .control-group, .gemini-feature { margin-bottom: 15px; }
+        .control-group label, .chemistry-info h3, .gemini-feature h3 {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #e2e8f0; /* text-slate-200 */
+        }
+        .control-group input[type="range"], .control-group input[type="color"], .control-group select,
+        .gemini-feature textarea, .gemini-feature button {
+            width: 100%;
+            margin-top: 5px;
+            border-radius: 6px;
+            padding: 8px;
+            background-color: #374151; /* bg-slate-700 */
+            border: 1px solid #4b5563; /* border-slate-600 */
+            color: white;
+        }
+        .gemini-feature button {
+            background-color: #2563eb; /* bg-blue-600 */
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .gemini-feature button:hover:not(:disabled) {
+            background-color: #1d4ed8; /* bg-blue-700 */
+        }
+        .gemini-feature button:disabled {
+            background-color: #4b5563; /* bg-slate-600 */
+            cursor: not-allowed;
+        }
+        .gemini-feature textarea { min-height: 60px; }
+        .control-group input[type="range"] { accent-color: #3b82f6; padding: 0; }
+        .control-group input[type="color"] { height: 40px; padding: 2px; background-clip: content-box; }
+        .control-group .value-display { font-size: 0.875rem; color: #94a3b8; margin-left: 8px; }
+        h2 {
+            font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem;
+            border-bottom: 1px solid #4b5563; padding-bottom: 0.5rem;
+            color: #f8fafc; /* text-slate-50 */
+        }
+        .section-divider {
+            border-top: 1px solid #4b5563; /* border-slate-600 */
+            margin-top: 20px;
+            padding-top: 15px;
+        }
+        .chemistry-info p, #geminiResponseArea p, #geminiResponseArea div { /* Added div for pre-wrap */
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: #cbd5e1; /* text-slate-300 */
+            margin-bottom: 10px;
+            white-space: pre-wrap; /* Preserve line breaks from Gemini */
+            word-wrap: break-word;
+        }
+        .chemistry-info strong { color: #93c5fd; /* text-blue-300 */ }
+        .hidden { display: none !important; }
+        .loading-indicator {
+            text-align: center;
+            padding: 10px;
+            color: #93c5fd; /* text-blue-300 */
+        }
+        .error-message {
+            color: #fda4af; /* text-rose-300 */
+            background-color: #7f1d1d; /* bg-rose-900 */
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <div id="controls" class="text-sm">
+        <h2>3D Visualization</h2>
+
+        <div class="control-group">
+            <label for="viewMode">View Mode:</label>
+            <select id="viewMode">
+                <option value="diamond">Diamond Gem</option>
+                <option value="atomic">Carbon Atomic Structure</option>
+            </select>
+        </div>
+
+        <div id="diamondControls">
+            <div class="control-group">
+                <label for="diamondColor">Diamond Color:</label>
+                <input type="color" id="diamondColor" value="#f0f8ff"> </div>
+             <div class="control-group">
+                <label for="reflectivity">Reflectivity/Metalness:</label>
+                <input type="range" id="reflectivity" min="0" max="1" value="0.1" step="0.01"><span class="value-display" id="reflectivityVal">0.1</span>
+            </div>
+            <div class="control-group">
+                <label for="roughness">Roughness:</label>
+                <input type="range" id="roughness" min="0" max="1" value="0.05" step="0.01"><span class="value-display" id="roughnessVal">0.05</span>
+            </div>
+            <div class="control-group">
+                <label for="ior">Index of Refraction (IOR):</label>
+                <input type="range" id="ior" min="1.0" max="3.0" value="2.417" step="0.001"><span class="value-display" id="iorVal">2.417</span>
+            </div>
+            <div class="control-group">
+                <label for="transmission">Transmission (Transparency):</label>
+                <input type="range" id="transmission" min="0" max="1" value="0.95" step="0.01"><span class="value-display" id="transmissionVal">0.95</span>
+            </div>
+            <div class="control-group">
+                <label for="envMapIntensity">Environment Reflection Intensity:</label>
+                <input type="range" id="envMapIntensity" min="0" max="5" value="2.0" step="0.1"><span class="value-display" id="envMapIntensityVal">2.0</span>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>Position:</label>
+            <div>X: <input type="range" id="posX" min="-5" max="5" value="0" step="0.1"><span class="value-display" id="posXVal">0</span></div>
+            <div>Y: <input type="range" id="posY" min="-5" max="5" value="0" step="0.1"><span class="value-display" id="posYVal">0</span></div>
+            <div>Z: <input type="range" id="posZ" min="-5" max="5" value="0" step="0.1"><span class="value-display" id="posZVal">0</span></div>
+        </div>
+
+        <div class="control-group">
+            <label>Rotation (degrees):</label>
+            <div>X: <input type="range" id="rotX" min="0" max="360" value="15" step="1"><span class="value-display" id="rotXVal">15</span></div>
+            <div>Y: <input type="range" id="rotY" min="0" max="360" value="45" step="1"><span class="value-display" id="rotYVal">45</span></div>
+            <div>Z: <input type="range" id="rotZ" min="0" max="360" value="0" step="1"><span class="value-display" id="rotZVal">0</span></div>
+        </div>
+
+        <div class="control-group">
+            <label for="scale">Scale:</label>
+            <input type="range" id="scale" min="0.1" max="3" value="1.2" step="0.05"><span class="value-display" id="scaleVal">1.2</span>
+        </div>
+
+        <div class="control-group">
+            <label for="lightIntensity">Main Light Intensity:</label>
+            <input type="range" id="lightIntensity" min="0" max="10" value="3.0" step="0.1"><span class="value-display" id="lightIntensityVal">3.0</span>
+        </div>
+
+        <div class="control-group">
+            <label for="animationSpeed">Animation Speed (Y-axis):</label>
+            <input type="range" id="animationSpeed" min="0" max="0.05" value="0.003" step="0.0005"><span class="value-display" id="animationSpeedVal">0.003</span>
+        </div>
+
+        <div id="geminiFeaturesSection" class="section-divider">
+            <div id="geminiAskDiamondFeature" class="gemini-feature hidden">
+                <h3>✨ Ask About Diamond</h3>
+                <textarea id="diamondQuestion" placeholder="e.g., What makes diamonds sparkle?"></textarea>
+                <button id="askDiamondButton">Ask Gemini</button>
+            </div>
+            <div id="geminiExplainStructureFeature" class="gemini-feature hidden">
+                <h3>✨ Carbon Atomic Structure</h3>
+                <button id="explainStructureButton">Explain This Structure Further</button>
+            </div>
+            <div id="geminiLoadingIndicator" class="loading-indicator hidden">Thinking...</div>
+            <div id="geminiResponseArea" class="section-divider">
+                </div>
+        </div>
+
+        <div id="chemistryInfoSection" class="chemistry-info section-divider hidden">
+            <h3>The Chemistry of Diamond (Overview)</h3>
+            <p>Diamond is a fascinating allotrope of <strong>carbon</strong> (Atomic Number: 6). Each carbon atom in a diamond is covalently bonded to <strong>four</strong> other carbon atoms.</p>
+            <p>This arrangement is due to <strong>sp³ hybridization</strong> of carbon's atomic orbitals. The four sp³ hybrid orbitals form strong sigma (σ) bonds, pointing towards the corners of a <strong>tetrahedron</strong>.</p>
+            <p>The result is a giant covalent structure, a rigid three-dimensional lattice. This structure gives diamond its remarkable properties:</p>
+            <ul>
+                <li>💎 <strong>Extreme Hardness:</strong> One of the hardest known natural substances.</li>
+                <li>🔥 <strong>High Melting Point:</strong> Requires very high temperatures to break the strong C-C bonds.</li>
+                <li>✨ <strong>High Refractive Index:</strong> Leads to its brilliance and sparkle.</li>
+                <li>⚡ <strong>Electrical Insulator:</strong> All valence electrons are localized in covalent bonds.</li>
+            </ul>
+            <p>The model shows a small cluster representing this tetrahedral bonding. Each sphere is a carbon atom, and the cylinders are the strong covalent bonds.</p>
+        </div>
+    </div>
+
+    <script>
+        let scene, camera, renderer, activeObjectGroup, ambientLight, directionalLight, pointLight1, pointLight2, pointLight3;
+        let currentViewMode = 'diamond';
+        let isGeminiRequestPending = false; 
+
+        // DOM Elements
+        const viewModeSelector = document.getElementById('viewMode');
+        const diamondColorPicker = document.getElementById('diamondColor');
+        const reflectivitySlider = document.getElementById('reflectivity');
+        const roughnessSlider = document.getElementById('roughness');
+        const iorSlider = document.getElementById('ior');
+        const transmissionSlider = document.getElementById('transmission');
+        const envMapIntensitySlider = document.getElementById('envMapIntensity');
+
+
+        const posXSlider = document.getElementById('posX');
+        const posYSlider = document.getElementById('posY');
+        const posZSlider = document.getElementById('posZ');
+        const rotXSlider = document.getElementById('rotX');
+        const rotYSlider = document.getElementById('rotY');
+        const rotZSlider = document.getElementById('rotZ');
+        const scaleSlider = document.getElementById('scale');
+        const lightIntensitySlider = document.getElementById('lightIntensity');
+        const animationSpeedSlider = document.getElementById('animationSpeed');
+
+        const diamondControlsDiv = document.getElementById('diamondControls');
+        const chemistryInfoDiv = document.getElementById('chemistryInfoSection');
+
+        const geminiFeaturesSection = document.getElementById('geminiFeaturesSection');
+        const geminiAskDiamondFeatureDiv = document.getElementById('geminiAskDiamondFeature');
+        const diamondQuestionTextarea = document.getElementById('diamondQuestion');
+        const askDiamondButton = document.getElementById('askDiamondButton');
+        const geminiExplainStructureFeatureDiv = document.getElementById('geminiExplainStructureFeature');
+        const explainStructureButton = document.getElementById('explainStructureButton');
+        const geminiResponseArea = document.getElementById('geminiResponseArea');
+        const geminiLoadingIndicator = document.getElementById('geminiLoadingIndicator');
+
+        const reflectivityVal = document.getElementById('reflectivityVal');
+        const roughnessVal = document.getElementById('roughnessVal');
+        const iorVal = document.getElementById('iorVal');
+        const transmissionVal = document.getElementById('transmissionVal');
+        const envMapIntensityVal = document.getElementById('envMapIntensityVal');
+        const posXVal = document.getElementById('posXVal');
+        const posYVal = document.getElementById('posYVal');
+        const posZVal = document.getElementById('posZVal');
+        const rotXVal = document.getElementById('rotXVal');
+        const rotYVal = document.getElementById('rotYVal');
+        const rotZVal = document.getElementById('rotZVal');
+        const scaleVal = document.getElementById('scaleVal');
+        const lightIntensityVal = document.getElementById('lightIntensityVal');
+        const animationSpeedVal = document.getElementById('animationSpeedVal');
+
+        async function callGeminiAPI(prompt) {
+            if (isGeminiRequestPending) {
+                console.log("Gemini request already in progress.");
+                geminiResponseArea.innerHTML = '<p class="error-message">Please wait for the current request to complete.</p>';
+                return;
+            }
+            isGeminiRequestPending = true;
+            geminiLoadingIndicator.classList.remove('hidden');
+            geminiResponseArea.innerHTML = ''; 
+            askDiamondButton.disabled = true;
+            explainStructureButton.disabled = true;
+
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            
+            let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+            const payload = { contents: chatHistory };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`API Error (${response.status}): ${errorData.error?.message || 'Unknown error'}`);
+                }
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    geminiResponseArea.innerHTML = `<p>${text.replace(/\n/g, '<br>')}</p>`;
+                } else {
+                    geminiResponseArea.innerHTML = '<p class="error-message">No content received from Gemini, or response structure was unexpected.</p>';
+                    console.error("Unexpected Gemini response structure:", result);
+                }
+            } catch (error) {
+                console.error('Error calling Gemini API:', error);
+                geminiResponseArea.innerHTML = `<p class="error-message">Error: ${error.message}</p>`;
+            } finally {
+                geminiLoadingIndicator.classList.add('hidden');
+                isGeminiRequestPending = false;
+                askDiamondButton.disabled = false;
+                explainStructureButton.disabled = false;
+            }
+        }
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x18181b); 
+
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 1.5, 6); 
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); 
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.0;
+
+            document.getElementById('container').appendChild(renderer.domElement);
+
+            ambientLight = new THREE.AmbientLight(0xffffff, 0.3); 
+            scene.add(ambientLight);
+
+            directionalLight = new THREE.DirectionalLight(0xffffff, 1.2); 
+            directionalLight.position.set(10, 10, 10);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            directionalLight.shadow.bias = -0.0001;
+            scene.add(directionalLight);
+            
+            pointLight1 = new THREE.PointLight(0xffddcc, 0.8, 100); 
+            pointLight1.position.set(-8, 5, -5);
+            scene.add(pointLight1);
+
+            pointLight2 = new THREE.PointLight(0xccddff, 0.8, 100); 
+            pointLight2.position.set(8, -5, 5);
+            scene.add(pointLight2);
+
+            pointLight3 = new THREE.PointLight(0xffffff, 0.5, 100); 
+            pointLight3.position.set(0, 10, 0);
+            scene.add(pointLight3);
+
+
+            activeObjectGroup = new THREE.Group(); 
+            scene.add(activeObjectGroup);
+
+            setupView(); 
+
+            viewModeSelector.addEventListener('change', onViewModeChange);
+            diamondColorPicker.addEventListener('input', updateDiamondMaterial);
+            reflectivitySlider.addEventListener('input', updateDiamondMaterial);
+            roughnessSlider.addEventListener('input', updateDiamondMaterial);
+            iorSlider.addEventListener('input', updateDiamondMaterial);
+            transmissionSlider.addEventListener('input', updateDiamondMaterial);
+            envMapIntensitySlider.addEventListener('input', updateDiamondMaterial);
+
+
+            [posXSlider, posYSlider, posZSlider, rotXSlider, rotYSlider, rotZSlider, scaleSlider].forEach(slider => {
+                slider.addEventListener('input', updateObjectTransforms);
+            });
+            lightIntensitySlider.addEventListener('input', updateLightProperties);
+            animationSpeedSlider.addEventListener('input', updateValueDisplays);
+
+            askDiamondButton.addEventListener('click', () => {
+                const question = diamondQuestionTextarea.value.trim();
+                if (question) {
+                    callGeminiAPI(`Regarding diamonds, please answer: ${question}`);
+                } else {
+                    geminiResponseArea.innerHTML = '<p class="error-message">Please enter a question about diamonds.</p>';
+                }
+            });
+
+            explainStructureButton.addEventListener('click', () => {
+                const prompt = "Explain the sp3 hybridization and tetrahedral bonding structure of carbon atoms in diamond in more detail, suitable for a general audience learning chemistry. How does this structure contribute to its hardness and high melting point?";
+                callGeminiAPI(prompt);
+            });
+
+            updateValueDisplays();
+            window.addEventListener('resize', onWindowResize, false);
+            animate();
+        }
+
+        function clearActiveObjectGroup() {
+            while (activeObjectGroup.children.length > 0) {
+                const child = activeObjectGroup.children[0];
+                activeObjectGroup.remove(child);
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) { // Check if material exists
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(m => {
+                            if (m && typeof m.dispose === 'function') m.dispose();
+                        });
+                    } else {
+                        if (typeof child.material.dispose === 'function') {
+                           child.material.dispose();
+                        }
+                    }
+                }
+                 // If the child is a group (like our diamondGroup), recursively dispose its children
+                if (child.isGroup) {
+                    while(child.children.length > 0) {
+                        const subChild = child.children[0];
+                        child.remove(subChild);
+                        if (subChild.geometry) subChild.geometry.dispose();
+                        if (subChild.material) {
+                             if (Array.isArray(subChild.material)) {
+                                subChild.material.forEach(m => {
+                                    if (m && typeof m.dispose === 'function') m.dispose();
+                                });
+                            } else {
+                                if (subChild.material && typeof subChild.material.dispose === 'function') {
+                                   subChild.material.dispose();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        function setupView() {
+            clearActiveObjectGroup();
+            currentViewMode = viewModeSelector.value;
+            geminiResponseArea.innerHTML = ''; 
+
+            if (currentViewMode === 'diamond') {
+                createBrilliantCutDiamond(); 
+                diamondControlsDiv.classList.remove('hidden');
+                chemistryInfoDiv.classList.add('hidden');
+                geminiAskDiamondFeatureDiv.classList.remove('hidden');
+                geminiExplainStructureFeatureDiv.classList.add('hidden');
+            } else if (currentViewMode === 'atomic') {
+                createAtomicStructure();
+                diamondControlsDiv.classList.add('hidden');
+                chemistryInfoDiv.classList.remove('hidden');
+                geminiAskDiamondFeatureDiv.classList.add('hidden');
+                geminiExplainStructureFeatureDiv.classList.remove('hidden');
+            }
+            updateObjectTransforms(); 
+            updateValueDisplays(); 
+        }
+
+        function createBrilliantCutDiamond() {
+            const diamondGroup = new THREE.Group();
+            const transmissionValue = parseFloat(transmissionSlider.value);
+            const diamondHexColor = parseInt(diamondColorPicker.value.replace("#", "0x")); // Parse hex string to number
+
+            const material = new THREE.MeshPhysicalMaterial({
+                color: new THREE.Color(diamondHexColor), // Use parsed hex number
+                metalness: parseFloat(reflectivitySlider.value), 
+                roughness: parseFloat(roughnessSlider.value),   
+                ior: parseFloat(iorSlider.value),               
+                transmission: transmissionValue, 
+                transparent: transmissionValue > 0.01, // Be transparent if there's any significant transmission
+                envMapIntensity: parseFloat(envMapIntensitySlider.value), 
+                clearcoat: 1.0,         
+                clearcoatRoughness: 0.03, 
+                sheen: 0.5,             
+                sheenColor: new THREE.Color(0xffffff), 
+                specularIntensity: 1.0,
+                specularColor: new THREE.Color(0xffffff), 
+            });
+
+            const radius = 1.0; 
+            const crownHeight = radius * 0.35; 
+            const pavilionHeight = radius * 0.65; 
+            const facets = 32; 
+
+            const crownGeometry = new THREE.ConeGeometry(radius, crownHeight, facets, 1, false); 
+            const crown = new THREE.Mesh(crownGeometry, material);
+            crown.position.y = pavilionHeight / 2; 
+            crown.castShadow = true;
+            crown.receiveShadow = true;
+            diamondGroup.add(crown);
+
+            const pavilionGeometry = new THREE.ConeGeometry(radius, pavilionHeight, facets, 1, false);
+            const pavilion = new THREE.Mesh(pavilionGeometry, material);
+            pavilion.position.y = -crownHeight / 2; 
+            pavilion.rotation.x = Math.PI; 
+            pavilion.castShadow = true;
+            pavilion.receiveShadow = true;
+            diamondGroup.add(pavilion);
+            
+            activeObjectGroup.add(diamondGroup);
+        }
+
+
+        function createAtomicStructure() {
+            const atomRadius = 0.3;
+            const bondRadius = 0.08;
+            const bondLength = 1.2; 
+
+            const atomMaterial = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.5 }); 
+            const bondMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.7 });
+
+            const centralAtom = new THREE.Mesh(new THREE.SphereGeometry(atomRadius, 32, 32), atomMaterial);
+            centralAtom.castShadow = true;
+            activeObjectGroup.add(centralAtom);
+
+            const positions = [
+                new THREE.Vector3(1, 1, 1), new THREE.Vector3(1, -1, -1),
+                new THREE.Vector3(-1, 1, -1), new THREE.Vector3(-1, -1, 1)
+            ];
+
+            positions.forEach(pos => {
+                const normalizedPos = pos.clone().normalize().multiplyScalar(bondLength);
+                const atom = new THREE.Mesh(new THREE.SphereGeometry(atomRadius, 16, 16), atomMaterial);
+                atom.position.copy(normalizedPos);
+                atom.castShadow = true;
+                activeObjectGroup.add(atom);
+                const bondMesh = createBond(new THREE.Vector3(0,0,0), normalizedPos, bondMaterial, bondRadius);
+                activeObjectGroup.add(bondMesh);
+            });
+        }
+
+        function createBond(startPoint, endPoint, material, radius) {
+            const direction = new THREE.Vector3().subVectors(endPoint, startPoint);
+            const orientation = new THREE.Matrix4();
+            orientation.lookAt(startPoint, endPoint, new THREE.Object3D().up);
+            orientation.multiply(new THREE.Matrix4().makeRotationX(Math.PI / 2)); 
+
+            const edgeGeometry = new THREE.CylinderGeometry(radius, radius, direction.length(), 8, 1);
+            const bond = new THREE.Mesh(edgeGeometry, material);
+            bond.applyMatrix4(orientation);
+            bond.position.copy(startPoint).add(direction.multiplyScalar(0.5)); 
+            bond.castShadow = true;
+            return bond;
+        }
+
+        function onViewModeChange() {
+            setupView();
+        }
+
+        function updateDiamondMaterial() {
+            if (currentViewMode === 'diamond' && activeObjectGroup.children.length > 0) {
+                const diamondGroup = activeObjectGroup.children[0]; 
+                if (diamondGroup && diamondGroup.isGroup) {
+                    diamondGroup.children.forEach(childMesh => {
+                        if (childMesh.material && childMesh.material.isMeshPhysicalMaterial) {
+                            const diamondHexColor = parseInt(diamondColorPicker.value.replace("#", "0x"));
+                            childMesh.material.color.setHex(diamondHexColor); // Use setHex for parsed integer
+                            childMesh.material.metalness = parseFloat(reflectivitySlider.value);
+                            childMesh.material.roughness = parseFloat(roughnessSlider.value);
+                            childMesh.material.ior = parseFloat(iorSlider.value);
+                            const transmissionValue = parseFloat(transmissionSlider.value);
+                            childMesh.material.transmission = transmissionValue;
+                            childMesh.material.transparent = transmissionValue > 0.01; // Make transparent if there's noticeable transmission
+                            childMesh.material.envMapIntensity = parseFloat(envMapIntensitySlider.value);
+                            childMesh.material.needsUpdate = true;
+                        }
+                    });
+                }
+            }
+            updateValueDisplays();
+        }
+
+        function updateObjectTransforms() {
+            if (!activeObjectGroup) return;
+            activeObjectGroup.position.x = parseFloat(posXSlider.value);
+            activeObjectGroup.position.y = parseFloat(posYSlider.value);
+            activeObjectGroup.position.z = parseFloat(posZSlider.value);
+            activeObjectGroup.rotation.x = THREE.MathUtils.degToRad(parseFloat(rotXSlider.value));
+            activeObjectGroup.rotation.y = THREE.MathUtils.degToRad(parseFloat(rotYSlider.value));
+            activeObjectGroup.rotation.z = THREE.MathUtils.degToRad(parseFloat(rotZSlider.value));
+            const scaleValue = parseFloat(scaleSlider.value);
+            activeObjectGroup.scale.set(scaleValue, scaleValue, scaleValue);
+            updateValueDisplays();
+        }
+
+        function updateLightProperties() {
+            const intensity = parseFloat(lightIntensitySlider.value);
+            directionalLight.intensity = intensity; 
+            pointLight1.intensity = intensity * 0.6; 
+            pointLight2.intensity = intensity * 0.6;
+            pointLight3.intensity = intensity * 0.4;
+            ambientLight.intensity = intensity * 0.15; 
+            updateValueDisplays();
+        }
+
+        function updateValueDisplays() {
+            if (currentViewMode === 'diamond') {
+                reflectivityVal.textContent = reflectivitySlider.value;
+                roughnessVal.textContent = roughnessSlider.value;
+                iorVal.textContent = iorSlider.value;
+                transmissionVal.textContent = transmissionSlider.value;
+                envMapIntensityVal.textContent = envMapIntensitySlider.value;
+            }
+            posXVal.textContent = posXSlider.value;
+            posYVal.textContent = posYSlider.value;
+            posZVal.textContent = posZSlider.value;
+            rotXVal.textContent = rotXSlider.value;
+            rotYVal.textContent = rotYSlider.value;
+            rotZVal.textContent = rotZSlider.value;
+            scaleVal.textContent = scaleSlider.value;
+            lightIntensityVal.textContent = lightIntensitySlider.value;
+            animationSpeedVal.textContent = animationSpeedSlider.value;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const speed = parseFloat(animationSpeedSlider.value);
+
+            if (activeObjectGroup) {
+                activeObjectGroup.rotation.y += speed;
+                if (currentViewMode === 'diamond') {
+                     activeObjectGroup.rotation.x += speed * 0.2; 
+                }
+            }
+            
+            const time = Date.now() * 0.0003; 
+            pointLight1.position.x = Math.sin(time * 0.7) * 8;
+            pointLight1.position.y = Math.cos(time * 0.5) * 8;
+            pointLight1.position.z = Math.cos(time * 0.3) * 8;
+
+            pointLight2.position.x = Math.cos(time * 0.3) * -8;
+            pointLight2.position.y = Math.sin(time * 0.5) * -8;
+            pointLight2.position.z = Math.sin(time * 0.7) * -8;
+
+            renderer.render(scene, camera);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>

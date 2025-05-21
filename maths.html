@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js Parameter Visualization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; }
+        #container { width: 100vw; height: 100vh; display: block; }
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(30, 41, 59, 0.9); /* bg-slate-800 with opacity */
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            color: white;
+            max-width: 320px;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+        #controls::-webkit-scrollbar {
+            width: 8px;
+        }
+        #controls::-webkit-scrollbar-track {
+            background: #2d3748; /* bg-slate-700 */
+            border-radius: 10px;
+        }
+        #controls::-webkit-scrollbar-thumb {
+            background: #4a5568; /* bg-slate-600 */
+            border-radius: 10px;
+        }
+        #controls::-webkit-scrollbar-thumb:hover {
+            background: #718096; /* bg-slate-500 */
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #cbd5e1; /* text-slate-300 */
+        }
+        .control-group input[type="range"],
+        .control-group input[type="color"] {
+            width: 100%;
+            margin-top: 5px;
+            border-radius: 6px;
+        }
+        .control-group input[type="range"] {
+            accent-color: #3b82f6; /* accent-blue-500 */
+        }
+        .control-group input[type="color"] {
+            height: 40px;
+            padding: 2px;
+            border: 1px solid #4a5568; /* border-slate-600 */
+            background-clip: content-box; /* Ensures padding doesn't affect color area */
+        }
+        .control-group .value-display {
+            font-size: 0.875rem;
+            color: #94a3b8; /* text-slate-400 */
+            margin-left: 8px;
+        }
+        h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #4a5568; /* border-slate-600 */
+            padding-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <div id="controls" class="text-sm">
+        <h2>Controls</h2>
+    <div class="control-group">
+        <label for="shape">Shape:</label>
+        <select id="shape" class="w-full p-2 rounded-md bg-slate-700 border border-slate-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <option value="cube">Cube</option>
+            <option value="sphere">Sphere</option>
+            <option value="torus">Torus</option>
+            <option value="cone">Cone</option>
+        </select>
+    </div>
+
+    <div class="control-group">
+        <label>Position:</label>
+        <div>X: <input type="range" id="posX" min="-5" max="5" value="0" step="0.1"><span class="value-display" id="posXVal">0</span></div>
+        <div>Y: <input type="range" id="posY" min="-5" max="5" value="0" step="0.1"><span class="value-display" id="posYVal">0</span></div>
+        <div>Z: <input type="range" id="posZ" min="-5" max="5" value="0" step="0.1"><span class="value-display" id="posZVal">0</span></div>
+    </div>
+
+    <div class="control-group">
+        <label>Rotation (degrees):</label>
+        <div>X: <input type="range" id="rotX" min="0" max="360" value="0" step="1"><span class="value-display" id="rotXVal">0</span></div>
+        <div>Y: <input type="range" id="rotY" min="0" max="360" value="0" step="1"><span class="value-display" id="rotYVal">0</span></div>
+        <div>Z: <input type="range" id="rotZ" min="0" max="360" value="0" step="1"><span class="value-display" id="rotZVal">0</span></div>
+    </div>
+
+    <div class="control-group">
+        <label for="scale">Scale:</label>
+        <input type="range" id="scale" min="0.1" max="3" value="1" step="0.05"><span class="value-display" id="scaleVal">1</span>
+    </div>
+
+    <div class="control-group">
+        <label for="color">Color:</label>
+        <input type="color" id="color" value="#3b82f6"> </div>
+
+    <div class="control-group">
+        <label for="lightIntensity">Light Intensity:</label>
+        <input type="range" id="lightIntensity" min="0" max="5" value="1.5" step="0.1"><span class="value-display" id="lightIntensityVal">1.5</span>
+    </div>
+
+    <div class="control-group">
+        <label for="animationSpeed">Animation Speed (Y-axis):</label>
+        <input type="range" id="animationSpeed" min="0" max="0.1" value="0.005" step="0.001"><span class="value-display" id="animationSpeedVal">0.005</span>
+    </div>
+
+</div>
+
+<script>
+    let scene, camera, renderer, object, ambientLight, directionalLight;
+    let currentShape = 'cube';
+
+    // DOM Elements for controls
+    const shapeSelector = document.getElementById('shape');
+    const posXSlider = document.getElementById('posX');
+    const posYSlider = document.getElementById('posY');
+    const posZSlider = document.getElementById('posZ');
+    const rotXSlider = document.getElementById('rotX');
+    const rotYSlider = document.getElementById('rotY');
+    const rotZSlider = document.getElementById('rotZ');
+    const scaleSlider = document.getElementById('scale');
+    const colorPicker = document.getElementById('color');
+    const lightIntensitySlider = document.getElementById('lightIntensity');
+    const animationSpeedSlider = document.getElementById('animationSpeed');
+
+    // Value display spans
+    const posXVal = document.getElementById('posXVal');
+    const posYVal = document.getElementById('posYVal');
+    const posZVal = document.getElementById('posZVal');
+    const rotXVal = document.getElementById('rotXVal');
+    const rotYVal = document.getElementById('rotYVal');
+    const rotZVal = document.getElementById('rotZVal');
+    const scaleVal = document.getElementById('scaleVal');
+    const lightIntensityVal = document.getElementById('lightIntensityVal');
+    const animationSpeedVal = document.getElementById('animationSpeedVal');
+
+    function init() {
+        // Scene
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1e293b); // slate-800
+
+        // Camera
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 5;
+
+        // Renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('container').appendChild(renderer.domElement);
+
+        // Lights
+        ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Soft white light
+        scene.add(ambientLight);
+
+        directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(5, 10, 7.5);
+        scene.add(directionalLight);
+
+        // Initial Object
+        createObject(currentShape);
+
+        // Event Listeners for controls
+        shapeSelector.addEventListener('change', onShapeChange);
+        posXSlider.addEventListener('input', updateObjectProperties);
+        posYSlider.addEventListener('input', updateObjectProperties);
+        posZSlider.addEventListener('input', updateObjectProperties);
+        rotXSlider.addEventListener('input', updateObjectProperties);
+        rotYSlider.addEventListener('input', updateObjectProperties);
+        rotZSlider.addEventListener('input', updateObjectProperties);
+        scaleSlider.addEventListener('input', updateObjectProperties);
+        colorPicker.addEventListener('input', updateObjectProperties);
+        lightIntensitySlider.addEventListener('input', updateLightProperties);
+        animationSpeedSlider.addEventListener('input', updateAnimationProperties);
+
+
+        // Initial update for value displays
+        updateValueDisplays();
+
+        // Handle window resize
+        window.addEventListener('resize', onWindowResize, false);
+
+        animate();
+    }
+
+    function createObject(shapeType) {
+        if (object) {
+            scene.remove(object);
+            object.geometry.dispose();
+            object.material.dispose();
+        }
+
+        let geometry;
+        switch (shapeType) {
+            case 'sphere':
+                geometry = new THREE.SphereGeometry(1, 32, 32);
+                break;
+            case 'torus':
+                geometry = new THREE.TorusGeometry(1, 0.4, 16, 100);
+                break;
+            case 'cone':
+                geometry = new THREE.ConeGeometry(1, 2, 32);
+                break;
+            case 'cube':
+            default:
+                geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5); // Default size for cube
+                break;
+        }
+
+        const material = new THREE.MeshStandardMaterial({
+            color: parseInt(colorPicker.value.replace('#', '0x')),
+            roughness: 0.5,
+            metalness: 0.5
+        });
+        object = new THREE.Mesh(geometry, material);
+        scene.add(object);
+        updateObjectProperties(); // Apply current control values
+    }
+
+    function onShapeChange(event) {
+        currentShape = event.target.value;
+        createObject(currentShape);
+    }
+
+    function updateObjectProperties() {
+        if (!object) return;
+
+        // Position
+        object.position.x = parseFloat(posXSlider.value);
+        object.position.y = parseFloat(posYSlider.value);
+        object.position.z = parseFloat(posZSlider.value);
+
+        // Rotation (convert degrees to radians)
+        object.rotation.x = THREE.MathUtils.degToRad(parseFloat(rotXSlider.value));
+        object.rotation.y = THREE.MathUtils.degToRad(parseFloat(rotYSlider.value));
+        object.rotation.z = THREE.MathUtils.degToRad(parseFloat(rotZSlider.value));
+
+        // Scale
+        const scaleValue = parseFloat(scaleSlider.value);
+        object.scale.set(scaleValue, scaleValue, scaleValue);
+
+        // Color
+        object.material.color.set(colorPicker.value);
+
+        updateValueDisplays();
+    }
+
+    function updateLightProperties() {
+        const intensity = parseFloat(lightIntensitySlider.value);
+        directionalLight.intensity = intensity;
+        // Ambient light could also be adjusted, e.g., ambientLight.intensity = intensity * 0.3;
+        updateValueDisplays();
+    }
+
+    function updateAnimationProperties() {
+        // This function is mainly for updating the display value.
+        // The actual speed is used in the animate() function.
+        updateValueDisplays();
+    }
+
+    function updateValueDisplays() {
+        posXVal.textContent = posXSlider.value;
+        posYVal.textContent = posYSlider.value;
+        posZVal.textContent = posZSlider.value;
+        rotXVal.textContent = rotXSlider.value;
+        rotYVal.textContent = rotYSlider.value;
+        rotZVal.textContent = rotZSlider.value;
+        scaleVal.textContent = scaleSlider.value;
+        lightIntensityVal.textContent = lightIntensitySlider.value;
+        animationSpeedVal.textContent = animationSpeedSlider.value;
+    }
+
+
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+
+        if (object) {
+            // Simple animation: continuous rotation
+            const speed = parseFloat(animationSpeedSlider.value);
+            object.rotation.y += speed;
+            // object.rotation.x += speed * 0.5; // Optional x-axis animation
+        }
+
+        renderer.render(scene, camera);
+    }
+
+    // Initialize Three.js scene on window load
+    window.onload = init;
+</script>
+</body>
+</html>
