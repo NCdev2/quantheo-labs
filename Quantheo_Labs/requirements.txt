@@ -1,4 +1,3 @@
 streamlit
-three.js
 numpy
 pandas
