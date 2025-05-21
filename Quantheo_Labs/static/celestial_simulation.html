@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Solar System Simulation with Gemini Facts</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden; /* Prevent scrollbars */
+            font-family: 'Inter', sans-serif;
+            background-color: #000000; /* Black background for space */
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        #simulationContainer {
+            width: 100%;
+            height: 100%;
+            display: block;
+            cursor: pointer; /* Indicate clickable objects */
+        }
+        .info-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.8); /* Slightly more opaque */
+            padding: 15px;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            max-width: 320px; /* Slightly wider */
+            z-index: 10;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        .info-panel h2 {
+            margin-top: 0;
+            font-size: 18px;
+            color: #FFD700; /* Gold color for title */
+        }
+        .info-panel p {
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+        .info-panel ul {
+            padding-left: 20px;
+        }
+        .info-panel strong {
+            color: #4A90E2; /* Light blue for emphasis */
+        }
+        #planetSelectionInfo {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #444;
+        }
+        #selectedPlanetName {
+            font-size: 16px;
+            color: #FFA500; /* Orange for selected planet name */
+            margin-bottom: 10px;
+        }
+        .action-button {
+            background-color: #4A90E2;
+            color: white;
+            border: none;
+            padding: 10px 18px; /* Larger padding */
+            border-radius: 6px; /* More rounded */
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            display: block; /* Make button full width of its container */
+            width: 100%;
+            box-sizing: border-box; /* Include padding and border in the element's total width and height */
+            text-align: center;
+        }
+        .action-button:hover {
+            background-color: #357ABD;
+            transform: translateY(-1px); /* Slight lift on hover */
+        }
+        .action-button:disabled {
+            background-color: #555;
+            color: #999;
+            cursor: not-allowed;
+            transform: translateY(0);
+        }
+        #loadingIndicator {
+            display: none;
+            margin-top: 12px;
+            padding: 8px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            text-align: center;
+            font-style: italic;
+        }
+        #geminiResponse {
+            margin-top: 12px;
+            max-height: 200px; /* Increased max height */
+            overflow-y: auto;
+            background-color: rgba(255,255,255,0.05);
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 13px;
+            line-height: 1.5;
+            border: 1px solid #333;
+        }
+        /* Custom scrollbar for Gemini response */
+        #geminiResponse::-webkit-scrollbar {
+            width: 8px;
+        }
+        #geminiResponse::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1);
+            border-radius: 4px;
+        }
+        #geminiResponse::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 4px;
+        }
+        #geminiResponse::-webkit-scrollbar-thumb:hover {
+            background: #777;
+        }
+        .api-credit {
+            font-size: 0.8em;
+            margin-top: 15px;
+            text-align: center;
+            color: #aaa;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <div class="info-panel">
+        <h2>Virtual 3D Solar System</h2>
+        <p>Click on a planet or the Sun to select it, then learn more with Gemini! ✨</p>
+        <p><strong>Controls:</strong></p>
+        <ul>
+            <li><strong>Left Mouse Button + Drag:</strong> Rotate camera</li>
+            <li><strong>Mouse Wheel:</strong> Zoom in/out</li>
+            <li><strong>Right Mouse Button + Drag:</strong> Pan camera</li>
+        </ul>
+
+        <div id="planetSelectionInfo" style="display: none;">
+            <h3 id="selectedPlanetName"></h3>
+            <button id="learnMoreButton" class="action-button" disabled>✨ Learn More</button>
+            <div id="loadingIndicator">Loading interesting facts... ✨</div>
+            <div id="geminiResponse">
+                </div>
+        </div>
+        <p class="api-credit">Planetary facts powered by Gemini</p>
+    </div>
+    <div id="simulationContainer"></div>
+
+    <script>
+        // Ensure DOM is fully loaded before running script
+        window.onload = function() {
+            let scene, camera, renderer, controls;
+            let sun, earth, moon, mercury, venus, mars, jupiter, saturn, uranus, neptune;
+            const celestialBodies = []; // To store planets and moons for animation
+            let allPlanetMeshes = []; // To store all clickable planet meshes for raycasting
+
+            // Gemini API related elements
+            let selectedPlanetMesh = null;
+            const planetSelectionInfoDiv = document.getElementById('planetSelectionInfo');
+            const selectedPlanetNameH3 = document.getElementById('selectedPlanetName');
+            const learnMoreButton = document.getElementById('learnMoreButton');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const geminiResponseDiv = document.getElementById('geminiResponse');
+
+            // Raycasting
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+
+            // Constants for realism (scaled down)
+            const SUN_RADIUS = 5;
+            const MERCURY_RADIUS = 0.2;
+            const VENUS_RADIUS = 0.4;
+            const EARTH_RADIUS = 0.5;
+            const MOON_RADIUS = 0.15;
+            const MARS_RADIUS = 0.3;
+            const JUPITER_RADIUS = 2.5;
+            const SATURN_RADIUS = 2;
+            const SATURN_RING_INNER_RADIUS = 2.5;
+            const SATURN_RING_OUTER_RADIUS = 4;
+            const URANUS_RADIUS = 1.5;
+            const NEPTUNE_RADIUS = 1.4;
+
+            const MERCURY_ORBIT_RADIUS = 10;
+            const VENUS_ORBIT_RADIUS = 15;
+            const EARTH_ORBIT_RADIUS = 20;
+            const MOON_ORBIT_RADIUS = 1.5; // Relative to Earth
+            const MARS_ORBIT_RADIUS = 28;
+            const JUPITER_ORBIT_RADIUS = 45;
+            const SATURN_ORBIT_RADIUS = 65;
+            const URANUS_ORBIT_RADIUS = 80;
+            const NEPTUNE_ORBIT_RADIUS = 95;
+
+            const ORBIT_SPEED_SCALE = 0.05;
+
+            function init() {
+                scene = new THREE.Scene();
+                camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                camera.position.set(0, 30, 50);
+
+                const container = document.getElementById('simulationContainer');
+                renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(container.clientWidth, container.clientHeight);
+                renderer.setPixelRatio(window.devicePixelRatio);
+                container.appendChild(renderer.domElement);
+
+                const ambientLight = new THREE.AmbientLight(0x606060, 1); // Slightly brighter ambient
+                scene.add(ambientLight);
+                const pointLight = new THREE.PointLight(0xffffff, 2.5, 600); // Stronger point light
+                scene.add(pointLight); // Will be positioned at the sun
+
+                controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                controls.screenSpacePanning = false;
+                controls.minDistance = 5;
+                controls.maxDistance = 250; // Increased max distance
+
+                // Sun
+                const sunGeometry = new THREE.SphereGeometry(SUN_RADIUS, 64, 64);
+                const sunMaterial = new THREE.MeshStandardMaterial({
+                    emissive: 0xFFFF00,
+                    emissiveIntensity: 1.5, // Brighter sun
+                    map: createProceduralTexture(new THREE.Color(0xFFFF00), new THREE.Color(0xFFCC00))
+                });
+                sun = new THREE.Mesh(sunGeometry, sunMaterial);
+                sun.name = "The Sun"; // Assign name for identification
+                scene.add(sun);
+                celestialBodies.push({mesh: sun, selfRotationSpeed: 0.001});
+                allPlanetMeshes.push(sun);
+                pointLight.position.copy(sun.position); // Position light at the sun
+
+                // Planets
+                mercury = createPlanet("Mercury", MERCURY_RADIUS, 0xAAAAAA, MERCURY_ORBIT_RADIUS, ORBIT_SPEED_SCALE * 1.6, 0.005);
+                venus = createPlanet("Venus", VENUS_RADIUS, 0xFFE4B5, VENUS_ORBIT_RADIUS, ORBIT_SPEED_SCALE * 1.17, 0.003);
+                
+                const earthData = createPlanet("Earth", EARTH_RADIUS, 0x4682B4, EARTH_ORBIT_RADIUS, ORBIT_SPEED_SCALE * 1, 0.004, true);
+                earth = earthData.mesh;
+
+                const moonGeometry = new THREE.SphereGeometry(MOON_RADIUS, 32, 32);
+                const moonMaterial = new THREE.MeshStandardMaterial({ map: createProceduralTexture(new THREE.Color(0xCCCCCC), new THREE.Color(0x888888)) });
+                moon = new THREE.Mesh(moonGeometry, moonMaterial);
+                moon.name = "The Moon";
+                moon.position.set(MOON_ORBIT_RADIUS, 0, 0);
+                earth.add(moon); // Moon is a child of Earth
+                allPlanetMeshes.push(moon); // Moon is also clickable
+                celestialBodies.push({
+                    mesh: moon,
+                    orbitCenter: earth,
+                    orbitRadius: MOON_ORBIT_RADIUS,
+                    orbitSpeed: ORBIT_SPEED_SCALE * 5,
+                    selfRotationSpeed: 0.002,
+                    orbitAngle: Math.random() * Math.PI * 2
+                });
+
+                mars = createPlanet("Mars", MARS_RADIUS, 0xFF4500, MARS_ORBIT_RADIUS, ORBIT_SPEED_SCALE * 0.8, 0.0045);
+                jupiter = createPlanet("Jupiter", JUPITER_RADIUS, 0xFFDEAD, JUPITER_ORBIT_RADIUS, ORBIT_SPEED_SCALE * 0.43, 0.002);
+                
+                const saturnData = createPlanet("Saturn", SATURN_RADIUS, 0xF0E68C, SATURN_ORBIT_RADIUS, ORBIT_SPEED_SCALE * 0.32, 0.0018);
+                saturn = saturnData.mesh;
+                const ringGeometry = new THREE.RingGeometry(SATURN_RING_INNER_RADIUS, SATURN_RING_OUTER_RADIUS, 64);
+                const ringMaterial = new THREE.MeshStandardMaterial({ 
+                    map: createProceduralTexture(new THREE.Color(0xDEB887), new THREE.Color(0xCDAF95), true),
+                    side: THREE.DoubleSide, 
+                    transparent: true, 
+                    opacity: 0.7 
+                });
+                const saturnRings = new THREE.Mesh(ringGeometry, ringMaterial);
+                saturnRings.rotation.x = Math.PI / 2.2;
+                saturn.add(saturnRings);
+
+                uranus = createPlanet("Uranus", URANUS_RADIUS, 0xAFEEEE, URANUS_ORBIT_RADIUS, ORBIT_SPEED_SCALE * 0.22, 0.0015, true, 98 * Math.PI / 180);
+                neptune = createPlanet("Neptune", NEPTUNE_RADIUS, 0x4169E1, NEPTUNE_ORBIT_RADIUS, ORBIT_SPEED_SCALE * 0.18, 0.0012);
+
+                // Event Listeners
+                renderer.domElement.addEventListener('click', onDocumentMouseClick, false);
+                learnMoreButton.addEventListener('click', fetchPlanetInfo);
+                window.addEventListener('resize', onWindowResize, false);
+                onWindowResize();
+            }
+
+            function createPlanet(name, radius, colorHexOrTexture, orbitRadius, orbitSpeed, selfRotationSpeed, hasAxialTilt = false, tiltAngle = 23.5 * Math.PI / 180) {
+                const geometry = new THREE.SphereGeometry(radius, 32, 32);
+                let material;
+                if (typeof colorHexOrTexture === 'number') {
+                    material = new THREE.MeshStandardMaterial({ color: colorHexOrTexture, roughness: 0.8, metalness: 0.2 });
+                } else {
+                    material = new THREE.MeshStandardMaterial({ map: colorHexOrTexture, roughness: 0.8, metalness: 0.2 });
+                }
+                
+                const planetMesh = new THREE.Mesh(geometry, material);
+                planetMesh.name = name; // Assign name for identification
+                
+                if (hasAxialTilt) {
+                    planetMesh.rotation.z = tiltAngle;
+                }
+
+                const orbitPathGeometry = new THREE.RingGeometry(orbitRadius - 0.05, orbitRadius + 0.05, 128);
+                const orbitPathMaterial = new THREE.MeshBasicMaterial({ color: 0x333333, side: THREE.DoubleSide, transparent: true, opacity: 0.3 });
+                const orbitPath = new THREE.Mesh(orbitPathGeometry, orbitPathMaterial);
+                orbitPath.rotation.x = Math.PI / 2;
+                scene.add(orbitPath);
+
+                scene.add(planetMesh);
+                allPlanetMeshes.push(planetMesh); // Add to clickable meshes
+                celestialBodies.push({
+                    mesh: planetMesh,
+                    orbitCenter: sun,
+                    orbitRadius: orbitRadius,
+                    orbitSpeed: orbitSpeed,
+                    selfRotationSpeed: selfRotationSpeed,
+                    orbitAngle: Math.random() * Math.PI * 2
+                });
+                return {mesh: planetMesh, orbit: orbitPath};
+            }
+
+            function createProceduralTexture(color1, color2, isRing = false) {
+                const canvas = document.createElement('canvas');
+                const size = isRing ? 256 : 128;
+                canvas.width = size;
+                canvas.height = size;
+                const context = canvas.getContext('2d');
+                if (isRing) {
+                    context.fillStyle = color1.getStyle();
+                    context.fillRect(0, 0, size, size);
+                    for (let i = 0; i < size; i += Math.random() * 10 + 4) { // Denser rings
+                        context.fillStyle = `rgba(${color2.r*255}, ${color2.g*255}, ${color2.b*255}, ${Math.random() * 0.4 + 0.3})`;
+                        context.fillRect(0, i, size, Math.random() * 2 + 1);
+                    }
+                } else {
+                    const gradient = context.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2); // Radial gradient
+                    gradient.addColorStop(0, color1.getStyle());
+                    gradient.addColorStop(0.7, color1.clone().lerp(color2, 0.5).getStyle()); // Mid tone
+                    gradient.addColorStop(1, color2.getStyle());
+                    context.fillStyle = gradient;
+                    context.fillRect(0, 0, size, size);
+                }
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                texture.anisotropy = renderer.capabilities.getMaxAnisotropy(); // Sharper textures
+                return texture;
+            }
+
+            function onWindowResize() {
+                const container = document.getElementById('simulationContainer');
+                if (camera && renderer && container) {
+                    camera.aspect = container.clientWidth / container.clientHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(container.clientWidth, container.clientHeight);
+                }
+            }
+
+            function onDocumentMouseClick(event) {
+                event.preventDefault();
+                const container = document.getElementById('simulationContainer');
+                const rect = container.getBoundingClientRect();
+
+                mouse.x = ((event.clientX - rect.left) / container.clientWidth) * 2 - 1;
+                mouse.y = -((event.clientY - rect.top) / container.clientHeight) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(allPlanetMeshes, false); // false means don't check children of meshes
+
+                if (intersects.length > 0) {
+                    selectedPlanetMesh = intersects[0].object;
+                    planetSelectionInfoDiv.style.display = 'block';
+                    selectedPlanetNameH3.textContent = selectedPlanetMesh.name;
+                    learnMoreButton.disabled = false;
+                    learnMoreButton.textContent = `✨ Learn More About ${selectedPlanetMesh.name}`;
+                    geminiResponseDiv.innerHTML = ''; // Clear previous response
+                    geminiResponseDiv.style.display = 'none';
+                } else {
+                    // Optional: Deselect if clicking empty space
+                    // selectedPlanetMesh = null;
+                    // planetSelectionInfoDiv.style.display = 'none';
+                    // learnMoreButton.disabled = true;
+                    // geminiResponseDiv.innerHTML = '';
+                }
+            }
+
+            async function fetchPlanetInfo() {
+                if (!selectedPlanetMesh || !selectedPlanetMesh.name) {
+                    geminiResponseDiv.innerHTML = 'Please select a celestial body first.';
+                    geminiResponseDiv.style.display = 'block';
+                    return;
+                }
+
+                const planetName = selectedPlanetMesh.name;
+                loadingIndicator.style.display = 'block';
+                geminiResponseDiv.style.display = 'none';
+                learnMoreButton.disabled = true;
+
+                const prompt = `Tell me three interesting and concise facts about ${planetName}. Each fact should be on a new line. Keep the total response under 150 words.`;
+                
+                let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+                const payload = { contents: chatHistory };
+                const apiKey = ""; // Gemini API Key will be injected by the environment
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        console.error("Gemini API Error:", errorData);
+                        throw new Error(`API request failed with status ${response.status}: ${errorData.error?.message || 'Unknown error'}`);
+                    }
+
+                    const result = await response.json();
+
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        const text = result.candidates[0].content.parts[0].text;
+                        // Format the text: replace newlines with <br> for HTML display
+                        geminiResponseDiv.innerHTML = text.replace(/\n/g, '<br>');
+                    } else {
+                        console.error("Unexpected Gemini API response structure:", result);
+                        geminiResponseDiv.textContent = 'Could not retrieve information. The response from the AI was not in the expected format.';
+                    }
+                } catch (error) {
+                    console.error('Error fetching planet info:', error);
+                    geminiResponseDiv.textContent = `Failed to fetch information: ${error.message}. Please check the console for more details.`;
+                } finally {
+                    loadingIndicator.style.display = 'none';
+                    geminiResponseDiv.style.display = 'block';
+                    learnMoreButton.disabled = false; // Re-enable after fetch, regardless of outcome
+                }
+            }
+
+            function animate() {
+                requestAnimationFrame(animate);
+                const time = Date.now() * 0.00005; // Slower overall animation for a more majestic feel
+
+                celestialBodies.forEach(bodyObj => {
+                    if (bodyObj.selfRotationSpeed) {
+                        bodyObj.mesh.rotation.y += bodyObj.selfRotationSpeed * 0.5; // Slower self-rotation
+                    }
+
+                    if (bodyObj.orbitRadius && bodyObj.orbitSpeed && bodyObj.orbitCenter) {
+                        bodyObj.orbitAngle = (bodyObj.orbitAngle || 0) + (bodyObj.orbitSpeed * 0.5); // Slower orbit
+                        const orbitCenterPosition = new THREE.Vector3();
+                        bodyObj.orbitCenter.getWorldPosition(orbitCenterPosition);
+
+                        bodyObj.mesh.position.x = orbitCenterPosition.x + Math.cos(bodyObj.orbitAngle) * bodyObj.orbitRadius;
+                        bodyObj.mesh.position.z = orbitCenterPosition.z + Math.sin(bodyObj.orbitAngle) * bodyObj.orbitRadius;
+                        
+                        // For bodies not orbiting the sun (like the moon), their Y position should be relative to their orbit center
+                        if (bodyObj.orbitCenter !== sun) {
+                           bodyObj.mesh.position.y = orbitCenterPosition.y + (bodyObj.mesh.position.y - orbitCenterPosition.y); // Maintain relative Y
+                        } else {
+                           bodyObj.mesh.position.y = orbitCenterPosition.y; // Keep planets in the sun's orbital plane
+                        }
+                    }
+                });
+                
+                controls.update();
+                renderer.render(scene, camera);
+            }
+
+            init();
+            animate();
+        };
+    </script>
+</body>
+</html>

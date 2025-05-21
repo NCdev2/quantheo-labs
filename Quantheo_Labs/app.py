@@ -20,9 +20,19 @@ path_file_based = os.path.join(script_dir_file_based, "static", "celestial_simul
 html_file_path_to_try = path_file_based
 
 try:
-    with open(html_file_path_to_try, "r") as file:
+    st.info(f"[DEBUG] Attempting to open: {html_file_path_to_try}")
+    st.info(f"[DEBUG] Path exists: {os.path.exists(html_file_path_to_try)}")
+
+    with open(html_file_path_to_try, "r", encoding="utf-8") as file: # Added encoding
         html_content = file.read()
+    
+    st.success(f"[DEBUG] File read successfully. Length: {len(html_content)}. First 50 chars: '{html_content[:50]}'")
+    st.info("[DEBUG] Attempting components.html()...")
+    
     components.html(html_content, height=800)
+    
+    st.success("[DEBUG] components.html() call completed.")
+
 except FileNotFoundError as e:
     st.error(f"Error: HTML file not found. Primary attempt failed for path: {html_file_path_to_try}")
     st.error(f"Underlying error: {e}")
@@ -64,10 +74,24 @@ except FileNotFoundError as e:
     # If the primary attempt (__file__ based) failed, try the repo_root relative one as a fallback
     st.error("Attempting fallback to path relative to repo root...")
     try:
-        with open(path_relative_to_repo_root, "r") as file:
+        with open(path_relative_to_repo_root, "r", encoding="utf-8") as file: # Added encoding
             html_content_fallback = file.read()
         components.html(html_content_fallback, height=800)
         st.success("Fallback path worked!")
     except FileNotFoundError as e2:
         st.error(f"Fallback attempt also failed for path: {path_relative_to_repo_root}")
         st.error(f"Underlying error for fallback: {e2}")
+
+except Exception as e_general: # New general exception handler
+    st.error(f"!!! An unexpected error occurred AFTER successfully reading the file (or during components.html) !!!")
+    st.error(f"Path attempted: {html_file_path_to_try}")
+    st.error(f"Error type: {type(e_general).__name__}")
+    st.error(f"Error details: {e_general}")
+    st.error(f"Current Working Directory (os.getcwd()): {os.getcwd()}")
+    st.error(f"__file__ variable: {__file__}")
+    st.error(f"os.path.abspath(__file__): {os.path.abspath(__file__)}")
+    st.error(f"Script directory (calculated from __file__): {script_dir_file_based}")
+    if 'html_content' in locals() and html_content is not None:
+        st.error(f"HTML content was read (length {len(html_content)}). First 100 chars: {html_content[:100]}")
+    else:
+        st.error("HTML content was NOT read or was None.")
