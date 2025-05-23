@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Holographic Anatomy Scan (GLTF Model with Gemini)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0a0a1a; /* Dark blue background */
+            color: #00ffff; /* Cyan text for any UI elements if added later */
+            font-family: 'Inter', sans-serif; /* Using Inter font as per guidelines */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            max-width: 100vw;
+            max-height: 100vh;
+        }
+        canvas {
+            display: block; /* Remove extra space below canvas */
+            width: 100% !important; /* Ensure canvas fills container */
+            height: 100% !important;
+        }
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(0, 20, 40, 0.85); /* Slightly more opaque */
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #00ffff;
+            color: #00ffff;
+            font-size: 13px; /* Slightly smaller base font */
+            max-width: 320px; /* Slightly wider */
+            z-index: 10; /* Ensure it's above the canvas */
+            max-height: calc(100vh - 40px); /* Prevent overflow */
+            overflow-y: auto; /* Allow scrolling if content exceeds height */
+        }
+        .info-panel h2 {
+            margin-top: 0;
+            font-size: 18px;
+            color: #ffffff;
+            border-bottom: 1px solid #007777;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
+        .info-panel h3 {
+            font-size: 15px;
+            color: #ffffff;
+            margin-top: 15px;
+            margin-bottom: 8px;
+        }
+        .info-panel ul {
+            padding-left: 20px;
+            margin-bottom: 10px;
+        }
+        .info-panel p {
+            line-height: 1.4;
+        }
+        .loading-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #00ffff;
+            font-size: 20px;
+            text-align: center;
+        }
+        .gemini-feature button {
+            background-color: #007777;
+            color: #ffffff;
+            border: 1px solid #00ffff;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background-color 0.3s, box-shadow 0.3s;
+            margin-top: 5px;
+            width: 100%; /* Make buttons full width of their container */
+        }
+        .gemini-feature button:hover {
+            background-color: #00aaaa;
+            box-shadow: 0 0 10px #00ffff;
+        }
+        .gemini-feature button:disabled {
+            background-color: #004444;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        .gemini-feature input[type="text"] {
+            width: calc(100% - 18px); /* Full width minus padding */
+            padding: 8px;
+            margin-bottom: 8px;
+            border-radius: 5px;
+            border: 1px solid #007777;
+            background-color: #001a1a;
+            color: #00ffff;
+            font-size: 13px;
+        }
+        #geminiResponseArea {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 5px;
+            border: 1px dashed #007777;
+            min-height: 50px;
+            font-size: 12px;
+            white-space: pre-wrap; /* Preserve formatting */
+            word-wrap: break-word;
+        }
+        .spinner {
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            border: 2px solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spinner-border .75s linear infinite;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+        @keyframes spinner-border {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div class="info-panel">
+        <h2>Holographic Scan</h2>
+        <p>Interact with the model:</p>
+        <ul>
+            <li><strong>LMB + Drag:</strong> Rotate</li>
+            <li><strong>Wheel:</strong> Zoom</li>
+            <li><strong>RMB + Drag:</strong> Pan</li>
+        </ul>
+        <p>Displaying GLTF model.</p>
+
+        <div class="gemini-feature">
+            <h3>✨ Gemini AI Features</h3>
+            <button id="funFactButton">Get Anatomy Fun Fact <span id="funFactSpinner" class="spinner" style="display: none;"></span></button>
+            
+            <h4 style="margin-top:15px; margin-bottom:5px; color:#fff;">Ask about Anatomy:</h4>
+            <input type="text" id="anatomyQuestion" placeholder="E.g., What is the function of the heart?">
+            <button id="askGeminiButton">Ask Gemini <span id="askGeminiSpinner" class="spinner" style="display: none;"></span></button>
+            
+            <h4>Response:</h4>
+            <div id="geminiResponseArea">Gemini's answers will appear here...</div>
+        </div>
+    </div>
+    <div id="loadingIndicator" class="loading-indicator" style="display: none;">Loading Model...</div>
+
+    <script type="module">
+        // Scene, Camera, Renderer
+        let scene, camera, renderer;
+        // Controls
+        let controls;
+        // Group to hold all body parts for easier manipulation
+        const bodyGroup = new THREE.Group();
+        // Materials
+        let holographicMaterial, wireframeMaterial;
+
+        // Gemini API Configuration
+        const apiKey = ""; // Left empty, Canvas will provide it
+        const textModelApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+        // DOM Elements for Gemini Features
+        let funFactButton, askGeminiButton, anatomyQuestionInput, geminiResponseArea;
+        let funFactSpinner, askGeminiSpinner;
+
+
+        // Initialize the 3D environment
+        function init() {
+            const container = document.getElementById('canvas-container');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+
+            // Scene
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x0a0a1a, 10, 70);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(0, 2, 7);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x4040ff, 2.0);
+            scene.add(ambientLight);
+            const directionalLight1 = new THREE.DirectionalLight(0x00ffff, 2.0);
+            directionalLight1.position.set(5, 10, 7.5);
+            scene.add(directionalLight1);
+            const directionalLight2 = new THREE.DirectionalLight(0xff00ff, 1.5);
+            directionalLight2.position.set(-5, -5, -7.5);
+            scene.add(directionalLight2);
+
+            // Orbit Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.screenSpacePanning = false;
+            controls.minDistance = 1;
+            controls.maxDistance = 50;
+            controls.target.set(0, 1, 0);
+
+            // Define Materials
+            holographicMaterial = new THREE.MeshStandardMaterial({
+                color: 0x00aaff, emissive: 0x00ffff, emissiveIntensity: 0.4,
+                metalness: 0.7, roughness: 0.4, transparent: true, opacity: 0.70,
+                side: THREE.DoubleSide, wireframe: false
+            });
+            holographicMaterial.userData = { baseEmissiveIntensity: 0.4 };
+
+            wireframeMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00ffff, wireframe: true, transparent: true, opacity: 0.25
+            });
+            
+            scene.add(bodyGroup);
+            loadGLTFModel();
+
+            const gridHelper = new THREE.GridHelper(50, 50, 0x003333, 0x002222);
+            gridHelper.position.y = -1.5;
+            scene.add(gridHelper);
+
+            // Initialize Gemini Feature DOM Elements and Event Listeners
+            funFactButton = document.getElementById('funFactButton');
+            askGeminiButton = document.getElementById('askGeminiButton');
+            anatomyQuestionInput = document.getElementById('anatomyQuestion');
+            geminiResponseArea = document.getElementById('geminiResponseArea');
+            funFactSpinner = document.getElementById('funFactSpinner');
+            askGeminiSpinner = document.getElementById('askGeminiSpinner');
+
+            funFactButton.addEventListener('click', handleFunFactRequest);
+            askGeminiButton.addEventListener('click', handleAskGeminiRequest);
+
+            window.addEventListener('resize', onWindowResize, false);
+            animate();
+        }
+
+        // Load the GLTF model
+        function loadGLTFModel() {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            loadingIndicator.style.display = 'block';
+            const loader = new THREE.GLTFLoader();
+            const modelUrl = 'https://threejs.org/examples/models/gltf/Soldier.glb';
+
+            loader.load(modelUrl, function (gltf) {
+                const model = gltf.scene;
+                model.scale.set(1.2, 1.2, 1.2);
+                model.position.set(0, -1.5, 0);
+                model.rotation.y = Math.PI;
+
+                model.traverse(function (child) {
+                    if (child.isMesh) {
+                        child.material = holographicMaterial.clone();
+                        child.material.userData = { baseEmissiveIntensity: holographicMaterial.emissiveIntensity };
+                        const wireframeMesh = new THREE.Mesh(child.geometry, wireframeMaterial.clone());
+                        wireframeMesh.scale.copy(child.scale);
+                        child.add(wireframeMesh);
+                    }
+                });
+                bodyGroup.add(model);
+                controls.target.set(0, model.position.y + 1, 0);
+                loadingIndicator.style.display = 'none';
+                console.log("Model loaded successfully.");
+            }, undefined, function (error) {
+                console.error('An error happened while loading the model:', error);
+                loadingIndicator.textContent = 'Error loading model. Check console.';
+            });
+        }
+
+        // --- Gemini API Integration Functions ---
+        async function callGeminiAPI(promptText) {
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: promptText }] }]
+            };
+            try {
+                const response = await fetch(textModelApiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) {
+                    const errorBody = await response.text();
+                    throw new Error(`API request failed with status ${response.status}: ${errorBody}`);
+                }
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    return result.candidates[0].content.parts[0].text;
+                } else {
+                    console.error("Unexpected response structure:", result);
+                    return "Sorry, I couldn't get a valid response. The response structure was unexpected.";
+                }
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                return `Sorry, an error occurred: ${error.message}. Check the console for more details.`;
+            }
+        }
+
+        async function handleFunFactRequest() {
+            funFactButton.disabled = true;
+            funFactSpinner.style.display = 'inline-block';
+            geminiResponseArea.textContent = 'Fetching a fun fact...';
+            
+            const prompt = "Tell me an interesting and concise fun fact about human anatomy (around 1-2 sentences).";
+            const fact = await callGeminiAPI(prompt);
+            
+            geminiResponseArea.textContent = fact;
+            funFactButton.disabled = false;
+            funFactSpinner.style.display = 'none';
+        }
+
+        async function handleAskGeminiRequest() {
+            const question = anatomyQuestionInput.value.trim();
+            if (!question) {
+                geminiResponseArea.textContent = 'Please type a question first.';
+                return;
+            }
+
+            askGeminiButton.disabled = true;
+            askGeminiSpinner.style.display = 'inline-block';
+            geminiResponseArea.textContent = `Asking Gemini: "${question}"...`;
+
+            const prompt = `Regarding human anatomy, please answer the following question concisely: ${question}`;
+            const answer = await callGeminiAPI(prompt);
+
+            geminiResponseArea.textContent = answer;
+            askGeminiButton.disabled = false;
+            askGeminiSpinner.style.display = 'none';
+        }
+
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            if (camera && renderer && container) {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            const time = Date.now() * 0.0005;
+            bodyGroup.traverse((object) => {
+                if (object.isMesh && object.material && object.material.emissive) {
+                    const baseIntensity = object.material.userData.baseEmissiveIntensity || 0.1;
+                    const pulseFactor = (Math.sin(time * 3) + 1) / 2;
+                    object.material.emissiveIntensity = baseIntensity * (0.7 + pulseFactor * 0.6);
+                }
+            });
+            renderer.render(scene, camera);
+        }
+        
+        window.onload = function() {
+            if (typeof THREE !== 'undefined' && typeof THREE.OrbitControls !== 'undefined' && typeof THREE.GLTFLoader !== 'undefined') {
+                init();
+            } else {
+                console.error("Three.js, OrbitControls, or GLTFLoader not loaded. Check CDN links.");
+                const container = document.getElementById('canvas-container');
+                if (container) {
+                    container.innerHTML = "<p style='color: red; text-align: center; margin-top: 50px;'>Error: Could not load 3D libraries. Please check your internet connection and try again.</p>";
+                }
+            }
+        };
+    </script>
+</body>
+</html>
