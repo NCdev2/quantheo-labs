@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Flower Anatomy Lab</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .flower-part {
+            transition: all 0.2s ease-in-out;
+            stroke: #374151; /* gray-700 */
+            stroke-width: 1px;
+            cursor: pointer;
+        }
+        .flower-part:hover {
+            stroke-width: 2.5px;
+            stroke: #EC4899; /* pink-500 */
+            opacity: 0.85;
+        }
+        .selected-svg-part {
+            stroke-width: 3px;
+            stroke: #D946EF; /* fuchsia-500 */
+            /* filter: drop-shadow(0 0 6px #D946EF); */ /* Can be too intense */
+        }
+        .selected-list-item {
+            background-color: #FCE7F3; /* pink-100 */
+            font-weight: 600; /* semibold */
+            color: #DB2777; /* pink-600 */
+            border-left: 4px solid #DB2777; /* pink-600 */
+        }
+        #info-panel {
+            min-height: 150px; /* Ensure panel doesn't jump too much */
+        }
+        /* Hide some less critical elements on smaller screens for clarity */
+        @media (max-width: 767px) { /* md breakpoint in Tailwind */
+            .hide-on-mobile {
+                display: none;
+            }
+            #flower-svg {
+                max-height: 320px; 
+            }
+            .lg\:flex-row { /* Ensure stacking on mobile for main layout */
+                flex-direction: column;
+            }
+        }
+        .info-content p {
+            margin-bottom: 0.5rem;
+        }
+        .info-content em {
+            color: #555;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-pink-100 via-purple-50 to-fuchsia-100 min-h-screen">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="text-center mb-6 sm:mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-pink-600">Interactive Flower Anatomy</h1>
+            <p class="text-gray-700 mt-2 text-sm sm:text-base">Click on the flower parts in the diagram or the names in the list to learn more!</p>
+        </header>
+
+        <div class="flex flex-col md:flex-row gap-6 lg:gap-8">
+            <div id="flower-diagram-container" class="md:w-1/2 lg:w-3/5 flex justify-center items-center bg-white/80 backdrop-blur-sm p-3 sm:p-4 rounded-xl shadow-lg">
+                <svg id="flower-svg" width="100%" height="auto" viewBox="0 0 400 500" class="max-w-md">
+                    <rect id="pedicel-svg" data-part="pedicel" x="190" y="450" width="20" height="50" fill="#A7D397" class="flower-part"/>
+                    <ellipse id="receptacle-svg" data-part="receptacle" cx="200" cy="445" rx="30" ry="15" fill="#86B970" class="flower-part"/>
+
+                    <path id="sepal1-svg" data-part="sepal" d="M200,435 Q180,400 155,420 L145,430 Q170,455 200,445 Z" fill="#61A24A" class="flower-part"/>
+                    <path id="sepal2-svg" data-part="sepal" d="M200,435 Q220,400 245,420 L255,430 Q230,455 200,445 Z" fill="#61A24A" class="flower-part"/>
+                    <path id="sepal3-svg" data-part="sepal" d="M200,435 Q190,390 200,380 Q210,390 200,435 Z" transform="rotate(180 200 407.5)" fill="#558E3E" class="flower-part hide-on-mobile"/>
+
+                    <path id="petal1-svg" data-part="petal" d="M200,425 C100,400 100,250 200,230 C300,250 300,400 200,425 Z" fill="#FDBFDE" class="flower-part"/>
+                    <path id="petal2-svg" data-part="petal" d="M200,425 C120,380 150,220 200,230 C250,220 280,380 200,425 Z" transform="rotate(55 200 327.5)" fill="#FCA5CC" class="flower-part"/>
+                    <path id="petal3-svg" data-part="petal" d="M200,425 C120,380 150,220 200,230 C250,220 280,380 200,425 Z" transform="rotate(-55 200 327.5)" fill="#FCA5CC" class="flower-part"/>
+                    <path id="petal4-svg" data-part="petal" d="M200,425 C100,400 100,250 200,230 C300,250 300,400 200,425 Z" transform="rotate(25 200 327.5) scale(0.9)" fill="#FDBFDE" class="flower-part hide-on-mobile"/>
+                    <path id="petal5-svg" data-part="petal" d="M200,425 C100,400 100,250 200,230 C300,250 300,400 200,425 Z" transform="rotate(-25 200 327.5) scale(0.9)" fill="#FDBFDE" class="flower-part hide-on-mobile"/>
+
+                    <g id="pistil-svg" data-part="pistil" class="flower-part">
+                        <ellipse cx="200" cy="280" rx="25" ry="15" fill="#E0BBE4" /> <rect x="195" y="290" width="10" height="60" fill="#C9A2D0" /> <ellipse cx="200" cy="370" rx="30" ry="40" fill="#B288BB" /> <circle cx="192" cy="370" r="3.5" fill="#F3E5F5"/>
+                        <circle cx="208" cy="370" r="3.5" fill="#F3E5F5"/>
+                        <circle cx="200" cy="360" r="3.5" fill="#F3E5F5"/>
+                        <circle cx="200" cy="380" r="3.5" fill="#F3E5F5"/>
+                    </g>
+
+                    <g id="stamen1-svg" data-part="stamen" class="flower-part">
+                        <line x1="160" y1="390" x2="170" y2="295" stroke="#FFE082" stroke-width="5" /> <ellipse cx="170" cy="290" rx="10" ry="6" fill="#FFCA28" /> </g>
+                    <g id="stamen2-svg" data-part="stamen" class="flower-part">
+                        <line x1="240" y1="390" x2="230" y2="295" stroke="#FFE082" stroke-width="5" /> <ellipse cx="230" cy="290" rx="10" ry="6" fill="#FFCA28" /> </g>
+                    <g id="stamen3-svg" data-part="stamen" class="flower-part hide-on-mobile">
+                        <line x1="135" y1="370" x2="155" y2="285" stroke="#FFE082" stroke-width="5" /> <ellipse cx="155" cy="280" rx="10" ry="6" fill="#FFCA28" /> </g>
+                     <g id="stamen4-svg" data-part="stamen" class="flower-part hide-on-mobile">
+                        <line x1="265" y1="370" x2="245" y2="285" stroke="#FFE082" stroke-width="5" /> <ellipse cx="245" cy="280" rx="10" ry="6" fill="#FFCA28" /> </g>
+                </svg>
+            </div>
+
+            <div class="md:w-1/2 lg:w-2/5 flex flex-col gap-6 lg:gap-8">
+                <div id="info-panel" class="bg-white/90 backdrop-blur-sm p-5 sm:p-6 rounded-xl shadow-lg">
+                    <h2 id="info-title" class="text-2xl font-semibold text-pink-600 mb-3">Welcome to the Flower Lab!</h2>
+                    <div id="info-description" class="text-gray-700 space-y-2 info-content">
+                        <p>This interactive tool helps you learn about the different parts of a typical flower.</p>
+                        <p>Click on any part of the flower diagram on the left, or choose a name from the list below, to see its details here.</p>
+                    </div>
+                </div>
+
+                <div id="parts-list-container" class="bg-white/90 backdrop-blur-sm p-5 sm:p-6 rounded-xl shadow-lg">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Discover Flower Parts:</h3>
+                    <ul id="parts-list" class="space-y-1.5">
+                        </ul>
+                </div>
+            </div>
+        </div>
+         <footer class="text-center mt-8 sm:mt-12 py-4">
+            <p class="text-sm text-gray-600">&copy; 2024 Virtual Flower Lab. Explore and Learn!</p>
+        </footer>
+    </div>
+
+    <script>
+        const flowerPartsData = {
+            pedicel: {
+                name: "Pedicel",
+                description: "<p>The stalk that supports a single flower. It connects the flower to the main stem or branch.</p><p>In some species, it may be very short or absent (these flowers are called sessile).</p>",
+                svg_ids: ["pedicel-svg"]
+            },
+            receptacle: {
+                name: "Receptacle",
+                description: "<p>The expanded tip of the pedicel where all floral organs (sepals, petals, stamens, and pistil) are attached.</p><p>Its shape can vary significantly among different flower species and is an important characteristic for plant identification.</p>",
+                svg_ids: ["receptacle-svg"]
+            },
+            sepal: {
+                name: "Sepal (collectively Calyx)",
+                description: "<p>Leaf-like structures, typically green, located at the base of the flower, just below the petals.</p><p>Their primary function is to enclose and protect the developing flower bud before it opens. All sepals together form the <strong>calyx</strong>.</p>",
+                svg_ids: ["sepal1-svg", "sepal2-svg", "sepal3-svg"]
+            },
+            petal: {
+                name: "Petal (collectively Corolla)",
+                description: "<p>Often the most conspicuous part of a flower, petals are typically brightly colored and sometimes scented to attract pollinators like insects, birds, or bats.</p><p>All petals together form the <strong>corolla</strong>. Their shape, size, color, and arrangement vary greatly and are key to attracting specific pollinators.</p>",
+                svg_ids: ["petal1-svg", "petal2-svg", "petal3-svg", "petal4-svg", "petal5-svg"]
+            },
+            stamen: {
+                name: "Stamen (Male Reproductive Part)",
+                description: "<p>The male reproductive organ of a flower. Each stamen typically consists of two main parts: the anther and the filament.</p><p>The collective term for all stamens in a flower is the <strong>androecium</strong>.</p>",
+                subparts: "<em>Key components:</em><br><strong>Anther:</strong> The sac-like structure at the top of the filament that produces and contains pollen grains (which house male gametes).<br><strong>Filament:</strong> The stalk-like structure that supports the anther, positioning it for effective pollen dispersal.",
+                svg_ids: ["stamen1-svg", "stamen2-svg", "stamen3-svg", "stamen4-svg"]
+            },
+            pistil: {
+                name: "Pistil / Carpel (Female Reproductive Part)",
+                description: "<p>The female reproductive organ, usually located in the center of the flower. A flower may have one or more pistils (or carpels).</p><p>The collective term for all pistils/carpels in a flower is the <strong>gynoecium</strong>.</p>",
+                subparts: "<em>Key components:</em><br><strong>Stigma:</strong> The receptive tip of the pistil, often sticky or feathery, responsible for capturing pollen grains.<br><strong>Style:</strong> A stalk-like tube connecting the stigma to the ovary. Pollen tubes grow through the style to reach the ovules.<br><strong>Ovary:</strong> The enlarged basal portion of the pistil that contains one or more <strong>ovules</strong>. After fertilization, the ovary develops into the fruit, and the ovules develop into seeds.",
+                svg_ids: ["pistil-svg"] 
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const partsList = document.getElementById('parts-list');
+            const infoTitle = document.getElementById('info-title');
+            const infoDescription = document.getElementById('info-description');
+            const flowerSVG = document.getElementById('flower-svg');
+
+            let currentSelectedPartKey = null;
+
+            // Populate the parts list
+            function populatePartsList() {
+                for (const key in flowerPartsData) {
+                    const part = flowerPartsData[key];
+                    const listItem = document.createElement('li');
+                    listItem.textContent = part.name;
+                    listItem.dataset.part = key;
+                    listItem.className = 'p-2.5 rounded-md hover:bg-pink-200/70 cursor-pointer transition-colors duration-150 ease-in-out text-gray-700 hover:text-pink-700';
+                    partsList.appendChild(listItem);
+                }
+            }
+
+            // Function to handle part selection
+            function selectPart(partKey) {
+                if (!flowerPartsData[partKey]) return;
+                
+                const partData = flowerPartsData[partKey];
+
+                // Update info panel
+                infoTitle.textContent = partData.name;
+                let descriptionHTML = partData.description;
+                if (partData.subparts) {
+                    descriptionHTML += `<br><p class="mt-2">${partData.subparts}</p>`;
+                }
+                infoDescription.innerHTML = descriptionHTML;
+
+                // Clear previous selections
+                document.querySelectorAll('.selected-svg-part').forEach(el => el.classList.remove('selected-svg-part'));
+                document.querySelectorAll('#parts-list li').forEach(li => li.classList.remove('selected-list-item'));
+                
+                // Apply new selections to SVG parts
+                partData.svg_ids.forEach(svgId => {
+                    const svgElement = document.getElementById(svgId);
+                    if (svgElement) {
+                        svgElement.classList.add('selected-svg-part');
+                    }
+                });
+
+                // Apply new selection to list item
+                const listItem = partsList.querySelector(`li[data-part="${partKey}"]`);
+                if (listItem) {
+                    listItem.classList.add('selected-list-item');
+                }
+                currentSelectedPartKey = partKey;
+            }
+
+            // Event listeners for SVG parts
+            flowerSVG.querySelectorAll('.flower-part').forEach(el => {
+                el.addEventListener('click', (event) => {
+                    // For grouped elements like stamen or pistil, ensure we get the top-level group's data-part
+                    let targetElement = event.target;
+                    while(targetElement && targetElement !== flowerSVG && !targetElement.dataset.part) {
+                        targetElement = targetElement.parentElement;
+                    }
+                    if (targetElement && targetElement.dataset.part) {
+                         const partKey = targetElement.dataset.part;
+                         selectPart(partKey);
+                    }
+                });
+            });
+
+            // Event listener for parts list (event delegation)
+            partsList.addEventListener('click', (event) => {
+                const listItem = event.target.closest('li');
+                if (listItem && listItem.dataset.part) {
+                    const partKey = listItem.dataset.part;
+                    selectPart(partKey);
+                }
+            });
+
+            // Initialize
+            populatePartsList();
+        });
+    </script>
+</body>
+</html>

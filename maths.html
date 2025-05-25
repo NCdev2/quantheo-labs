@@ -1,317 +1,356 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html> <!-- Defines the document type as HTML5 -->
+<html lang="en"> <!-- Root element, sets the language to English -->
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Three.js Parameter Visualization</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Meta tags provide metadata about the HTML document -->
+    <meta charset="UTF-8"> <!-- Specifies the character encoding for the document -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Configures the viewport for responsiveness -->
+    <title>Three.js Parameter Visualization</title> <!-- Sets the title that appears in the browser tab -->
+    <script src="https://cdn.tailwindcss.com"></script> <!-- Includes Tailwind CSS framework for styling -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script> <!-- Includes the Three.js library for 3D graphics -->
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; }
-        #container { width: 100vw; height: 100vh; display: block; }
+        /* CSS rules for styling the HTML elements */
+        body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; } /* Styles the body: no margin, hides overflow, sets default font */
+        #container { width: 100vw; height: 100vh; display: block; } /* Styles the 3D scene container: full viewport width and height */
         #controls {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background-color: rgba(30, 41, 59, 0.9); /* bg-slate-800 with opacity */
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            color: white;
-            max-width: 320px;
-            max-height: calc(100vh - 40px);
-            overflow-y: auto;
+            /* Styles the control panel container */
+            position: absolute; /* Positions the panel relative to the nearest positioned ancestor */
+            top: 20px; /* 20 pixels from the top edge of the viewport */
+            left: 20px; /* 20 pixels from the left edge of the viewport */
+            background-color: rgba(30, 41, 59, 0.9); /* Sets background color to semi-transparent dark slate gray (Tailwind bg-slate-800) */
+            padding: 20px; /* Adds 20 pixels of padding inside the panel */
+            border-radius: 12px; /* Rounds the corners of the panel */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* Adds a subtle shadow effect */
+            color: white; /* Sets the text color to white */
+            max-width: 320px; /* Sets the maximum width of the panel */
+            max-height: calc(100vh - 40px); /* Sets maximum height, considering padding from top/bottom */
+            overflow-y: auto; /* Adds a vertical scrollbar if content exceeds max height */
         }
-        #controls::-webkit-scrollbar {
-            width: 8px;
+        #controls::-webkit-scrollbar { /* Styles the scrollbar (for WebKit browsers like Chrome/Safari) */
+            width: 8px; /* Sets the width of the scrollbar */
         }
-        #controls::-webkit-scrollbar-track {
-            background: #2d3748; /* bg-slate-700 */
-            border-radius: 10px;
+        #controls::-webkit-scrollbar-track { /* Styles the track of the scrollbar */
+            background: #2d3748; /* Sets the background color of the track (Tailwind bg-slate-700) */
+            border-radius: 10px; /* Rounds the corners of the track */
         }
-        #controls::-webkit-scrollbar-thumb {
-            background: #4a5568; /* bg-slate-600 */
-            border-radius: 10px;
+        #controls::-webkit-scrollbar-thumb { /* Styles the draggable part of the scrollbar (thumb) */
+            background: #4a5568; /* Sets the background color of the thumb (Tailwind bg-slate-600) */
+            border-radius: 10px; /* Rounds the corners of the thumb */
         }
-        #controls::-webkit-scrollbar-thumb:hover {
-            background: #718096; /* bg-slate-500 */
+        #controls::-webkit-scrollbar-thumb:hover { /* Styles the thumb when hovered over */
+            background: #718096; /* Lightens the thumb color on hover (Tailwind bg-slate-500) */
         }
-        .control-group {
-            margin-bottom: 15px;
+        .control-group { /* Styles a group of related controls */
+            margin-bottom: 15px; /* Adds 15 pixels of space below each control group */
         }
-        .control-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-            color: #cbd5e1; /* text-slate-300 */
+        .control-group label { /* Styles the labels within control groups */
+            display: block; /* Makes the label a block-level element (takes full width) */
+            margin-bottom: 5px; /* Adds 5 pixels of space below the label */
+            font-weight: 500; /* Sets the font weight to medium */
+            color: #cbd5e1; /* Sets the label text color (Tailwind text-slate-300) */
         }
-        .control-group input[type="range"],
-        .control-group input[type="color"] {
-            width: 100%;
-            margin-top: 5px;
-            border-radius: 6px;
+        .control-group input[type="range"], /* Styles range input sliders */
+        .control-group input[type="color"] { /* Styles color input pickers */
+            width: 100%; /* Makes the input take the full width of its container */
+            margin-top: 5px; /* Adds 5 pixels of space above the input */
+            border-radius: 6px; /* Rounds the corners of the input */
         }
-        .control-group input[type="range"] {
-            accent-color: #3b82f6; /* accent-blue-500 */
+        .control-group input[type="range"] { /* Specific styles for range sliders */
+            accent-color: #3b82f6; /* Sets the color of the slider's thumb and track (Tailwind accent-blue-500) */
         }
-        .control-group input[type="color"] {
-            height: 40px;
-            padding: 2px;
-            border: 1px solid #4a5568; /* border-slate-600 */
-            background-clip: content-box; /* Ensures padding doesn't affect color area */
+        .control-group input[type="color"] { /* Specific styles for color pickers */
+            height: 40px; /* Sets the height of the color picker */
+            padding: 2px; /* Adds padding around the color area */
+            border: 1px solid #4a5568; /* Adds a border (Tailwind border-slate-600) */
+            background-clip: content-box; /* Ensures padding doesn't affect the color display area */
         }
-        .control-group .value-display {
-            font-size: 0.875rem;
-            color: #94a3b8; /* text-slate-400 */
-            margin-left: 8px;
+        .control-group .value-display { /* Styles the span used to display slider values */
+            font-size: 0.875rem; /* Sets the font size (14px if base is 16px) */
+            color: #94a3b8; /* Sets the text color (Tailwind text-slate-400) */
+            margin-left: 8px; /* Adds 8 pixels of space to the left of the value */
         }
-        h2 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-            border-bottom: 1px solid #4a5568; /* border-slate-600 */
-            padding-bottom: 0.5rem;
+        h2 { /* Styles the main heading within the controls panel */
+            font-size: 1.5rem; /* Sets the font size (24px if base is 16px) */
+            font-weight: 600; /* Sets the font weight to semi-bold */
+            margin-bottom: 1rem; /* Adds space below the heading (16px if base is 16px) */
+            border-bottom: 1px solid #4a5568; /* Adds a bottom border (Tailwind border-slate-600) */
+            padding-bottom: 0.5rem; /* Adds padding below the text, above the border (8px if base is 16px) */
         }
     </style>
 </head>
 <body>
+    <!-- Main container for the Three.js canvas -->
     <div id="container"></div>
-    <div id="controls" class="text-sm">
-        <h2>Controls</h2>
+    <!-- Container for all the interactive controls -->
+    <div id="controls" class="text-sm"> <!-- `text-sm` is a Tailwind class for smaller text -->
+        <h2>Controls</h2> <!-- Heading for the controls panel -->
+    
+    <!-- Control group for selecting the shape -->
     <div class="control-group">
-        <label for="shape">Shape:</label>
+        <label for="shape">Shape:</label> <!-- Label for the shape selector dropdown -->
+        <!-- Dropdown menu for selecting a 3D shape -->
         <select id="shape" class="w-full p-2 rounded-md bg-slate-700 border border-slate-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-            <option value="cube">Cube</option>
-            <option value="sphere">Sphere</option>
-            <option value="torus">Torus</option>
-            <option value="cone">Cone</option>
-            <option value="diamond">Diamond</option>
+            <!-- Tailwind classes: full width, padding, rounded corners, background, border, focus styles -->
+            <option value="cube">Cube</option> <!-- Option for Cube shape -->
+            <option value="sphere">Sphere</option> <!-- Option for Sphere shape -->
+            <option value="torus">Torus</option> <!-- Option for Torus shape -->
+            <option value="cone">Cone</option> <!-- Option for Cone shape -->
+            <option value="diamond">Diamond</option> <!-- Option for Diamond (Octahedron) shape -->
         </select>
     </div>
 
+    <!-- Control group for adjusting the object's position -->
     <div class="control-group">
-        <label>Position:</label>
+        <label>Position:</label> <!-- Label for the position controls -->
+        <!-- Slider for X-axis position -->
         <div>X: <input type="range" id="posX" min="-5" max="5" value="0" step="0.1"><span class="value-display" id="posXVal">0</span></div>
+        <!-- Slider for Y-axis position -->
         <div>Y: <input type="range" id="posY" min="-5" max="5" value="0" step="0.1"><span class="value-display" id="posYVal">0</span></div>
+        <!-- Slider for Z-axis position -->
         <div>Z: <input type="range" id="posZ" min="-5" max="5" value="0" step="0.1"><span class="value-display" id="posZVal">0</span></div>
     </div>
 
+    <!-- Control group for adjusting the object's rotation -->
     <div class="control-group">
-        <label>Rotation (degrees):</label>
+        <label>Rotation (degrees):</label> <!-- Label for the rotation controls -->
+        <!-- Slider for X-axis rotation -->
         <div>X: <input type="range" id="rotX" min="0" max="360" value="0" step="1"><span class="value-display" id="rotXVal">0</span></div>
+        <!-- Slider for Y-axis rotation -->
         <div>Y: <input type="range" id="rotY" min="0" max="360" value="0" step="1"><span class="value-display" id="rotYVal">0</span></div>
+        <!-- Slider for Z-axis rotation -->
         <div>Z: <input type="range" id="rotZ" min="0" max="360" value="0" step="1"><span class="value-display" id="rotZVal">0</span></div>
     </div>
 
+    <!-- Control group for adjusting the object's scale -->
     <div class="control-group">
-        <label for="scale">Scale:</label>
+        <label for="scale">Scale:</label> <!-- Label for the scale slider -->
+        <!-- Slider for uniform scaling -->
         <input type="range" id="scale" min="0.1" max="3" value="1" step="0.05"><span class="value-display" id="scaleVal">1</span>
     </div>
 
+    <!-- Control group for choosing the object's color -->
     <div class="control-group">
-        <label for="color">Color:</label>
-        <input type="color" id="color" value="#3b82f6"> </div>
+        <label for="color">Color:</label> <!-- Label for the color picker -->
+        <!-- Color picker input -->
+        <input type="color" id="color" value="#3b82f6"> <!-- Default color is a shade of blue -->
+    </div>
 
+    <!-- Control group for adjusting the light intensity -->
     <div class="control-group">
-        <label for="lightIntensity">Light Intensity:</label>
+        <label for="lightIntensity">Light Intensity:</label> <!-- Label for the light intensity slider -->
+        <!-- Slider for light intensity -->
         <input type="range" id="lightIntensity" min="0" max="5" value="1.5" step="0.1"><span class="value-display" id="lightIntensityVal">1.5</span>
     </div>
 
+    <!-- Control group for adjusting the animation speed -->
     <div class="control-group">
-        <label for="animationSpeed">Animation Speed (Y-axis):</label>
+        <label for="animationSpeed">Animation Speed (Y-axis):</label> <!-- Label for the animation speed slider -->
+        <!-- Slider for animation speed -->
         <input type="range" id="animationSpeed" min="0" max="0.1" value="0.005" step="0.001"><span class="value-display" id="animationSpeedVal">0.005</span>
     </div>
 
-</div>
+</div> <!-- End of controls div -->
 
 <script>
-    let scene, camera, renderer, object, ambientLight, directionalLight;
-    let currentShape = 'cube';
+    // Declare variables for Three.js components and scene state
+    let scene, camera, renderer, object, ambientLight, directionalLight; // Core Three.js objects
+    let currentShape = 'cube'; // Variable to store the currently selected shape, defaults to 'cube'
 
-    // DOM Elements for controls
-    const shapeSelector = document.getElementById('shape');
-    const posXSlider = document.getElementById('posX');
-    const posYSlider = document.getElementById('posY');
-    const posZSlider = document.getElementById('posZ');
-    const rotXSlider = document.getElementById('rotX');
-    const rotYSlider = document.getElementById('rotY');
-    const rotZSlider = document.getElementById('rotZ');
-    const scaleSlider = document.getElementById('scale');
-    const colorPicker = document.getElementById('color');
-    const lightIntensitySlider = document.getElementById('lightIntensity');
-    const animationSpeedSlider = document.getElementById('animationSpeed');
+    // Get references to DOM elements for controls
+    const shapeSelector = document.getElementById('shape'); // Dropdown for shape selection
+    const posXSlider = document.getElementById('posX'); // Slider for X position
+    const posYSlider = document.getElementById('posY'); // Slider for Y position
+    const posZSlider = document.getElementById('posZ'); // Slider for Z position
+    const rotXSlider = document.getElementById('rotX'); // Slider for X rotation
+    const rotYSlider = document.getElementById('rotY'); // Slider for Y rotation
+    const rotZSlider = document.getElementById('rotZ'); // Slider for Z rotation
+    const scaleSlider = document.getElementById('scale'); // Slider for scale
+    const colorPicker = document.getElementById('color'); // Input for color selection
+    const lightIntensitySlider = document.getElementById('lightIntensity'); // Slider for light intensity
+    const animationSpeedSlider = document.getElementById('animationSpeed'); // Slider for animation speed
 
-    // Value display spans
-    const posXVal = document.getElementById('posXVal');
-    const posYVal = document.getElementById('posYVal');
-    const posZVal = document.getElementById('posZVal');
-    const rotXVal = document.getElementById('rotXVal');
-    const rotYVal = document.getElementById('rotYVal');
-    const rotZVal = document.getElementById('rotZVal');
-    const scaleVal = document.getElementById('scaleVal');
-    const lightIntensityVal = document.getElementById('lightIntensityVal');
-    const animationSpeedVal = document.getElementById('animationSpeedVal');
+    // Get references to DOM elements for displaying slider values
+    const posXVal = document.getElementById('posXVal'); // Span to display X position value
+    const posYVal = document.getElementById('posYVal'); // Span to display Y position value
+    const posZVal = document.getElementById('posZVal'); // Span to display Z position value
+    const rotXVal = document.getElementById('rotXVal'); // Span to display X rotation value
+    const rotYVal = document.getElementById('rotYVal'); // Span to display Y rotation value
+    const rotZVal = document.getElementById('rotZVal'); // Span to display Z rotation value
+    const scaleVal = document.getElementById('scaleVal'); // Span to display scale value
+    const lightIntensityVal = document.getElementById('lightIntensityVal'); // Span to display light intensity value
+    const animationSpeedVal = document.getElementById('animationSpeedVal'); // Span to display animation speed value
 
+    // Initialization function for the Three.js scene
     function init() {
-        // Scene
-        scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x1e293b); // slate-800
+        // Scene setup
+        scene = new THREE.Scene(); // Create a new Three.js scene
+        scene.background = new THREE.Color(0x1e293b); // Set background color (Tailwind slate-800)
 
-        // Camera
-        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.z = 5;
+        // Camera setup
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000); // Create a perspective camera
+        // Parameters: FOV, aspect ratio, near clipping plane, far clipping plane
+        camera.position.z = 5; // Position the camera 5 units away from the origin along the Z-axis
 
-        // Renderer
-        renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.getElementById('container').appendChild(renderer.domElement);
+        // Renderer setup
+        renderer = new THREE.WebGLRenderer({ antialias: true }); // Create a WebGL renderer with antialiasing enabled
+        renderer.setSize(window.innerWidth, window.innerHeight); // Set the size of the renderer to match the window dimensions
+        document.getElementById('container').appendChild(renderer.domElement); // Add the renderer's canvas element to the 'container' div
 
-        // Lights
-        ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Soft white light
-        scene.add(ambientLight);
+        // Lighting setup
+        ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Create an ambient light (soft white light, half intensity)
+        scene.add(ambientLight); // Add ambient light to the scene
 
-        directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-        directionalLight.position.set(5, 10, 7.5);
-        scene.add(directionalLight);
+        directionalLight = new THREE.DirectionalLight(0xffffff, 1); // Create a directional light (white light, full intensity)
+        directionalLight.position.set(5, 10, 7.5); // Set the position of the directional light
+        scene.add(directionalLight); // Add directional light to the scene
 
-        // Initial Object
-        createObject(currentShape);
+        // Initial Object creation
+        createObject(currentShape); // Create the initial 3D object based on the default shape
 
-        // Event Listeners for controls
-        shapeSelector.addEventListener('change', onShapeChange);
-        posXSlider.addEventListener('input', updateObjectProperties);
-        posYSlider.addEventListener('input', updateObjectProperties);
-        posZSlider.addEventListener('input', updateObjectProperties);
-        rotXSlider.addEventListener('input', updateObjectProperties);
-        rotYSlider.addEventListener('input', updateObjectProperties);
-        rotZSlider.addEventListener('input', updateObjectProperties);
-        scaleSlider.addEventListener('input', updateObjectProperties);
-        colorPicker.addEventListener('input', updateObjectProperties);
-        lightIntensitySlider.addEventListener('input', updateLightProperties);
-        animationSpeedSlider.addEventListener('input', updateAnimationProperties);
+        // Event Listeners for control elements
+        shapeSelector.addEventListener('change', onShapeChange); // Listen for changes in the shape selector
+        posXSlider.addEventListener('input', updateObjectProperties); // Listen for input on X position slider
+        posYSlider.addEventListener('input', updateObjectProperties); // Listen for input on Y position slider
+        posZSlider.addEventListener('input', updateObjectProperties); // Listen for input on Z position slider
+        rotXSlider.addEventListener('input', updateObjectProperties); // Listen for input on X rotation slider
+        rotYSlider.addEventListener('input', updateObjectProperties); // Listen for input on Y rotation slider
+        rotZSlider.addEventListener('input', updateObjectProperties); // Listen for input on Z rotation slider
+        scaleSlider.addEventListener('input', updateObjectProperties); // Listen for input on scale slider
+        colorPicker.addEventListener('input', updateObjectProperties); // Listen for input on color picker
+        lightIntensitySlider.addEventListener('input', updateLightProperties); // Listen for input on light intensity slider
+        animationSpeedSlider.addEventListener('input', updateAnimationProperties); // Listen for input on animation speed slider
 
+        // Initial update for value display spans
+        updateValueDisplays(); // Update the text content of value display spans to match initial slider values
 
-        // Initial update for value displays
-        updateValueDisplays();
+        // Handle window resize events
+        window.addEventListener('resize', onWindowResize, false); // Add event listener for window resize
 
-        // Handle window resize
-        window.addEventListener('resize', onWindowResize, false);
-
-        animate();
+        // Start the animation loop
+        animate(); // Call the animate function to begin rendering frames
     }
 
+    // Function to create or recreate the 3D object
     function createObject(shapeType) {
+        // If an object already exists, remove it from the scene and dispose of its geometry and material to free up resources
         if (object) {
-            scene.remove(object);
-            object.geometry.dispose();
-            object.material.dispose();
+            scene.remove(object); // Remove the object from the scene
+            object.geometry.dispose(); // Dispose of the object's geometry
+            object.material.dispose(); // Dispose of the object's material
         }
 
-        let geometry;
+        let geometry; // Variable to hold the geometry of the new object
+        // Switch statement to create different geometries based on shapeType
         switch (shapeType) {
             case 'sphere':
-                geometry = new THREE.SphereGeometry(1, 32, 32);
+                geometry = new THREE.SphereGeometry(1, 32, 32); // Create a sphere geometry (radius, widthSegments, heightSegments)
                 break;
             case 'torus':
-                geometry = new THREE.TorusGeometry(1, 0.4, 16, 100);
+                geometry = new THREE.TorusGeometry(1, 0.4, 16, 100); // Create a torus geometry (radius, tubeRadius, radialSegments, tubularSegments)
                 break;
             case 'cone':
-                geometry = new THREE.ConeGeometry(1, 2, 32);
+                geometry = new THREE.ConeGeometry(1, 2, 32); // Create a cone geometry (radius, height, radialSegments)
                 break;
             case 'diamond':
-                geometry = new THREE.OctahedronGeometry(1, 0); // Diamond-like shape
+                geometry = new THREE.OctahedronGeometry(1, 0); // Create an octahedron geometry (radius, detail) - looks like a diamond
                 break;
-            case 'cube':
+            case 'cube': // Default case
             default:
-                geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5); // Default size for cube
+                geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5); // Create a box (cube) geometry (width, height, depth)
                 break;
         }
 
+        // Create a standard material for the object
         const material = new THREE.MeshStandardMaterial({
-            color: parseInt(colorPicker.value.replace('#', '0x')),
-            roughness: 0.5,
-            metalness: 0.5
+            color: parseInt(colorPicker.value.replace('#', '0x')), // Set color from color picker (convert hex string to number)
+            roughness: 0.5, // Set roughness of the material
+            metalness: 0.5  // Set metalness of the material
         });
-        object = new THREE.Mesh(geometry, material);
-        scene.add(object);
-        updateObjectProperties(); // Apply current control values
+        object = new THREE.Mesh(geometry, material); // Create a mesh (the 3D object) using the geometry and material
+        scene.add(object); // Add the newly created object to the scene
+        updateObjectProperties(); // Apply current control values (position, rotation, scale, color) to the new object
     }
 
+    // Event handler for when the shape selection changes
     function onShapeChange(event) {
-        currentShape = event.target.value;
-        createObject(currentShape);
+        currentShape = event.target.value; // Update the currentShape variable with the new selected value
+        createObject(currentShape); // Recreate the object with the new shape
     }
 
+    // Function to update object properties based on slider/control values
     function updateObjectProperties() {
-        if (!object) return;
+        if (!object) return; // If the object doesn't exist, do nothing
 
-        // Position
-        object.position.x = parseFloat(posXSlider.value);
-        object.position.y = parseFloat(posYSlider.value);
-        object.position.z = parseFloat(posZSlider.value);
+        // Update Position
+        object.position.x = parseFloat(posXSlider.value); // Set X position from slider value
+        object.position.y = parseFloat(posYSlider.value); // Set Y position from slider value
+        object.position.z = parseFloat(posZSlider.value); // Set Z position from slider value
 
-        // Rotation (convert degrees to radians)
-        object.rotation.x = THREE.MathUtils.degToRad(parseFloat(rotXSlider.value));
-        object.rotation.y = THREE.MathUtils.degToRad(parseFloat(rotYSlider.value));
-        object.rotation.z = THREE.MathUtils.degToRad(parseFloat(rotZSlider.value));
+        // Update Rotation (convert degrees from sliders to radians for Three.js)
+        object.rotation.x = THREE.MathUtils.degToRad(parseFloat(rotXSlider.value)); // Set X rotation
+        object.rotation.y = THREE.MathUtils.degToRad(parseFloat(rotYSlider.value)); // Set Y rotation
+        object.rotation.z = THREE.MathUtils.degToRad(parseFloat(rotZSlider.value)); // Set Z rotation
 
-        // Scale
-        const scaleValue = parseFloat(scaleSlider.value);
-        object.scale.set(scaleValue, scaleValue, scaleValue);
+        // Update Scale
+        const scaleValue = parseFloat(scaleSlider.value); // Get scale value from slider
+        object.scale.set(scaleValue, scaleValue, scaleValue); // Apply uniform scaling to X, Y, and Z axes
 
-        // Color
-        object.material.color.set(colorPicker.value);
+        // Update Color
+        object.material.color.set(colorPicker.value); // Set material color from color picker value
 
-        updateValueDisplays();
+        updateValueDisplays(); // Update the displayed values next to the sliders
     }
 
+    // Function to update light properties based on slider values
     function updateLightProperties() {
-        const intensity = parseFloat(lightIntensitySlider.value);
-        directionalLight.intensity = intensity;
-        // Ambient light could also be adjusted, e.g., ambientLight.intensity = intensity * 0.3;
-        updateValueDisplays();
+        const intensity = parseFloat(lightIntensitySlider.value); // Get light intensity from slider
+        directionalLight.intensity = intensity; // Update the intensity of the directional light
+        // Example: ambientLight could also be adjusted, e.g., ambientLight.intensity = intensity * 0.3;
+        updateValueDisplays(); // Update the displayed light intensity value
     }
 
+    // Function to update animation-related properties (currently just updates display)
     function updateAnimationProperties() {
-        // This function is mainly for updating the display value.
-        // The actual speed is used in the animate() function.
-        updateValueDisplays();
+        // This function is mainly for updating the display value for animation speed.
+        // The actual speed is read directly from the slider in the animate() function.
+        updateValueDisplays(); // Update the displayed animation speed value
     }
 
+    // Function to update the text content of the value display spans
     function updateValueDisplays() {
-        posXVal.textContent = posXSlider.value;
-        posYVal.textContent = posYSlider.value;
-        posZVal.textContent = posZSlider.value;
-        rotXVal.textContent = rotXSlider.value;
-        rotYVal.textContent = rotYSlider.value;
-        rotZVal.textContent = rotZSlider.value;
-        scaleVal.textContent = scaleSlider.value;
-        lightIntensityVal.textContent = lightIntensitySlider.value;
-        animationSpeedVal.textContent = animationSpeedSlider.value;
+        posXVal.textContent = posXSlider.value; // Display current X position
+        posYVal.textContent = posYSlider.value; // Display current Y position
+        posZVal.textContent = posZSlider.value; // Display current Z position
+        rotXVal.textContent = rotXSlider.value; // Display current X rotation
+        rotYVal.textContent = rotYSlider.value; // Display current Y rotation
+        rotZVal.textContent = rotZSlider.value; // Display current Z rotation
+        scaleVal.textContent = scaleSlider.value; // Display current scale
+        lightIntensityVal.textContent = lightIntensitySlider.value; // Display current light intensity
+        animationSpeedVal.textContent = animationSpeedSlider.value; // Display current animation speed
     }
 
-
+    // Event handler for window resize
     function onWindowResize() {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
+        camera.aspect = window.innerWidth / window.innerHeight; // Update camera's aspect ratio
+        camera.updateProjectionMatrix(); // Apply the aspect ratio change to the camera's projection matrix
+        renderer.setSize(window.innerWidth, window.innerHeight); // Resize the renderer to fit the new window size
     }
 
+    // Animation loop function, called repeatedly to render frames
     function animate() {
-        requestAnimationFrame(animate);
+        requestAnimationFrame(animate); // Request the browser to call animate again on the next frame, creating a loop
 
-        if (object) {
-            // Simple animation: continuous rotation
-            const speed = parseFloat(animationSpeedSlider.value);
-            object.rotation.y += speed;
-            // object.rotation.x += speed * 0.5; // Optional x-axis animation
+        if (object) { // Check if the object exists
+            // Simple animation: continuous rotation around the Y-axis
+            const speed = parseFloat(animationSpeedSlider.value); // Get animation speed from slider
+            object.rotation.y += speed; // Increment Y-axis rotation by the speed
+            // object.rotation.x += speed * 0.5; // Optional: example of adding X-axis animation
         }
 
-        renderer.render(scene, camera);
+        renderer.render(scene, camera); // Render the scene from the perspective of the camera
     }
 
-    // Initialize Three.js scene on window load
-    window.onload = init;
+    // Initialize the Three.js scene when the window has finished loading all content
+    window.onload = init; // Assign the init function to the window.onload event
 </script>
 </body>
 </html>
